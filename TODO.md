@@ -116,6 +116,18 @@ in the parent repo before naming anything here.
 - [ ] `Presentation/Views/Auth/LoginView.swift` — email + password, submit,
       inline error text. **Login only — no sign-up screen** (accounts are
       created on the web today; confirm if that should change).
+- [ ] Test-credentials scaffolding for manually exercising login against the
+      real backend with an invited account (not committed — real credentials
+      never touch git):
+  - [ ] `TIAGA/Secrets.example.xcconfig` (committed) — documents the expected
+        keys with empty placeholder values.
+  - [ ] `TIAGA/Secrets.local.xcconfig` (gitignored) — real test account
+        email/password, `#include`d from the Debug configuration.
+  - [ ] Expose as `TEST_ACCOUNT_EMAIL`/`TEST_ACCOUNT_PASSWORD` Info.plist
+        keys (`$(VAR)` substitution), read via `Bundle.main` — DEBUG-only,
+        never compiled into a release build.
+  - [ ] `LoginView` DEBUG-only "fill test credentials" affordance so this is
+        actually convenient to use, not just theoretically available.
 - [ ] `Presentation/Views/Auth/WaitlistGateView.swift` — "you're on the
       waiting list" message + invite code field. **Assumption to confirm:**
       the web waitlist screen also has a beta-application form; this mobile
