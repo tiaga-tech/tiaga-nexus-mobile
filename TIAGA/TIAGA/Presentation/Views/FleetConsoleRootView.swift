@@ -16,7 +16,9 @@ struct FleetConsoleRootView: View {
     @StateObject private var sideMenuViewModel = SideMenuViewModel()
     @State private var selectedRoute: AppRoute
     @State private var isSideMenuOpen: Bool
-    @State private var dragOffset: CGFloat = 0
+    /// Non-zero only while the drawer is actively being dragged — an offset
+    /// added on top of `restingOffset`, not the drawer's absolute position.
+    @State private var dragTranslation: CGFloat = 0
 
     private let sideMenuWidth: CGFloat = 300
     /// Dragging the drawer left past this fraction of its width closes it.
@@ -35,6 +37,10 @@ struct FleetConsoleRootView: View {
         #endif
     }
 
+    /// The drawer's resting horizontal offset for its current open/closed
+    /// intent — 0 when open, fully off-screen to the left when closed.
+    private var restingOffset: CGFloat { isSideMenuOpen ? 0 : -sideMenuWidth }
+
     var body: some View {
         ZStack(alignment: .leading) {
             NavigationStack {
@@ -52,39 +58,48 @@ struct FleetConsoleRootView: View {
             }
             .disabled(isSideMenuOpen)
 
-            if isSideMenuOpen {
-                Color.black.opacity(0.35)
-                    .ignoresSafeArea()
-                    .onTapGesture { closeMenu() }
-                    .transition(.opacity)
+            // The scrim and drawer are always in the hierarchy — never
+            // conditionally inserted/removed with `if` + `.transition()`.
+            // That combination didn't reliably animate on removal (likely
+            // GlassEffectContainer's own rendering pass tearing down
+            // immediately on removal rather than participating in the
+            // transition), so visibility is driven by directly animating
+            // opacity/offset instead, which SwiftUI handles far more
+            // reliably and is the standard approach for a custom drawer.
+            Color.black.opacity(isSideMenuOpen ? 0.35 : 0)
+                .ignoresSafeArea()
+                .allowsHitTesting(isSideMenuOpen)
+                .onTapGesture { closeMenu() }
 
-                SideMenuView(
-                    viewModel: sideMenuViewModel,
-                    selectedRoute: selectedRoute,
-                    onSelectRoute: { route in
-                        selectedRoute = route
-                        closeMenu()
-                    },
-                    onClose: { closeMenu() }
-                )
-                .frame(width: sideMenuWidth)
-                .frame(maxHeight: .infinity)
-                .offset(x: dragOffset)
-                .transition(.move(edge: .leading))
-                .gesture(
-                    DragGesture()
-                        .onChanged { value in
-                            dragOffset = min(0, value.translation.width)
+            SideMenuView(
+                viewModel: sideMenuViewModel,
+                selectedRoute: selectedRoute,
+                onSelectRoute: { route in
+                    selectedRoute = route
+                    closeMenu()
+                },
+                onClose: { closeMenu() }
+            )
+            .frame(width: sideMenuWidth)
+            .frame(maxHeight: .infinity)
+            .offset(x: restingOffset + dragTranslation)
+            .allowsHitTesting(isSideMenuOpen)
+            .gesture(
+                DragGesture()
+                    .onChanged { value in
+                        guard isSideMenuOpen else { return }
+                        // Only lets the drawer drag further closed (leftwards).
+                        dragTranslation = min(0, value.translation.width)
+                    }
+                    .onEnded { value in
+                        guard isSideMenuOpen else { return }
+                        if value.translation.width < -sideMenuWidth * dismissDragFraction {
+                            closeMenu()
+                        } else {
+                            withAnimation(.easeOut(duration: 0.2)) { dragTranslation = 0 }
                         }
-                        .onEnded { value in
-                            if value.translation.width < -sideMenuWidth * dismissDragFraction {
-                                closeMenu()
-                            } else {
-                                withAnimation(.easeOut(duration: 0.2)) { dragOffset = 0 }
-                            }
-                        }
-                )
-            }
+                    }
+            )
         }
         .background(TIAGAColor.background)
         // Starts as soon as the fleet console appears, not lazily when the
@@ -109,19 +124,14 @@ struct FleetConsoleRootView: View {
     }
 
     private func openMenu() {
-        dragOffset = 0
+        dragTranslation = 0
         withAnimation(.easeInOut(duration: 0.25)) { isSideMenuOpen = true }
     }
 
     private func closeMenu() {
-        // Both in the same transaction: a separate, unanimated dragOffset
-        // reset right after the animated flag flip competed with it for the
-        // same render pass, which is why closing (unlike opening) snapped
-        // shut instead of animating — a drag released mid-gesture would jump
-        // straight back to offset 0 before the removal transition even started.
         withAnimation(.easeInOut(duration: 0.25)) {
             isSideMenuOpen = false
-            dragOffset = 0
+            dragTranslation = 0
         }
     }
 
