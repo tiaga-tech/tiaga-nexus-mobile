@@ -40,6 +40,15 @@ final class AuthViewModel: ObservableObject {
     }
 
     func start() async {
+        #if DEBUG
+        // Screenshot/QA tooling only — lets `xcrun simctl launch` force a
+        // specific screen (via SIMCTL_CHILD_TIAGA_DEBUG_ROUTE) without
+        // driving real taps/typing. Never present in a Release build.
+        if let overrideRoute = Self.debugRouteOverride() {
+            route = overrideRoute
+            return
+        }
+        #endif
         route = .checkingSession
         do {
             switch try await restoreSessionUseCase.execute() {
@@ -97,6 +106,22 @@ final class AuthViewModel: ObservableObject {
     func fillFixtureCredentials(active: Bool) {
         emailField = active ? FakeAuthSessionRepository.activeAccountEmail : FakeAuthSessionRepository.waitlistedAccountEmail
         passwordField = FakeAuthSessionRepository.fixturePassword
+    }
+
+    /// Reads `TIAGA_DEBUG_ROUTE` (pass via `SIMCTL_CHILD_TIAGA_DEBUG_ROUTE`
+    /// to `xcrun simctl launch`) so a screenshot pass can force any screen
+    /// — "login", "waitlistGate", "authenticated" — without real taps/typing.
+    private static func debugRouteOverride() -> Route? {
+        switch ProcessInfo.processInfo.environment["TIAGA_DEBUG_ROUTE"] {
+        case "login":
+            return .login
+        case "waitlistGate":
+            return .waitlistGate(Account(email: FakeAuthSessionRepository.waitlistedAccountEmail, status: .waitlisted, roles: []))
+        case "authenticated":
+            return .authenticated(Account(email: FakeAuthSessionRepository.activeAccountEmail, status: .active, roles: []))
+        default:
+            return nil
+        }
     }
     #endif
 }

@@ -206,14 +206,19 @@ xcrun simctl io booted screenshot <path>.png               # then Read the png
 ```
 This catches what a build/test pass can't: contrast, sizing, an element that's
 missing or in the wrong place, a token that renders differently than expected.
-It's a static, launch-state check only — `simctl` can't tap or type, so it
-can't drive a multi-step flow (log in → land on a specific screen → open a
-sheet). For that, and for final polish/interaction feel, the **manual
-visual-confirmation checklist** in the PR's test plan is still required: one
-line per thing that needs a human driving it (each visually distinct state —
-loading/empty/error, a full interactive flow, anything the static screenshot
-pass didn't already cover). Write it as concrete, checkable claims ("Send
-button dims to ~30% opacity when the composer is empty"), not "looks good".
+`simctl` can't tap or type, so on its own it only reaches whatever screen the
+app lands on at launch. **Every screen a PR adds or changes needs its own
+screenshot**, not just the launch screen — reach the others with a DEBUG-only
+route override read from a launch environment variable (see
+`AuthViewModel.debugRouteOverride()` for the pattern), passed via
+`SIMCTL_CHILD_<VAR_NAME>=<value> xcrun simctl launch booted com.tiaga.TIAGA`.
+Extend that pattern for each new feature's ViewModel rather than inventing a
+different mechanism per section. It's still launch-state only — it can't
+verify a multi-step *interaction* (does tapping this button actually do the
+right thing) — so the **manual visual-confirmation checklist** in the PR's
+test plan is still required for that and for final polish/interaction feel.
+Write it as concrete, checkable claims ("Send button dims to ~30% opacity
+when the composer is empty"), not "looks good".
 
 **Every screenshot taken this way gets committed and embedded in the PR**,
 not just described in prose — save it to `docs/screenshots/<descriptive-name>.png`
@@ -232,6 +237,18 @@ authenticated viewer with repo access. Neither form can be verified with an
 anonymous `curl` — GitHub masks private-repo resources as 404 either way — so
 after embedding, ask the user to confirm it actually renders for them rather
 than assuming success.
+
+**Lay multiple screenshots out in a grid, not stacked full-width** — a
+full-device-height PNG at full column width makes the PR body absurdly tall.
+Use a raw HTML table (GitHub renders HTML in PR bodies) with a `width` on
+each `<img>`, a few screens per row:
+```html
+<table><tr>
+<td><img src="...auth-login.png?raw=true" width="250"></td>
+<td><img src="...auth-waitlist-gate.png?raw=true" width="250"></td>
+<td><img src="...auth-authenticated-placeholder.png?raw=true" width="250"></td>
+</tr></table>
+```
 
 Reuse a name across PRs when it's the same screen (the file just gets
 replaced/updated) rather than accumulating `-v2`/`-v3` copies.
