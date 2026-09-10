@@ -48,33 +48,41 @@ palette, blue-500 accent). See CLAUDE.md's Design System section.
 
 ---
 
-## 2. API Layer — `feature/api-layer`
+## 2. API Layer — `feature/api-layer` ✅
 
 Shared networking/transport only — **no feature-specific endpoints or DTOs
 here**; those are added inside each feature's own `Data/Repositories`
 implementation so this branch stays generic and every later branch has
 something concrete to build on.
 
-- [ ] `Data/API/TIAGAAPIClient.swift` — base HTTP client (base URL, request
-      building, JSON decoding, response/status handling).
-- [ ] `Data/API/TIAGAEventStream.swift` — SSE/WebSocket wrapper for live
-      updates (device presence, agent state, streaming chat tokens) — the real
-      backend uses SSE to the web client and WebSocket to harnesses; the phone
-      client consumes the SSE-equivalent stream.
-- [ ] `Data/API/SessionCookieStore.swift` — the real backend authenticates
+Grounded directly in `tiaga-nexus/web/src/lib/api.ts` and `backend/`:
+production origin `https://tiaga.tech/api` (same-origin behind a reverse
+proxy), JSON bodies are camelCase (ASP.NET Core default — no snake_case
+conversion needed), error responses are `{ "error": "..." }`, and the live
+stream is Server-Sent Events at `GET /api/events` (not WebSocket — that's
+harness-only).
+
+- [x] `Data/API/TIAGAAPIClient.swift` — base HTTP client (base URL, request
+      building, JSON decoding, response/status handling). Built against an
+      injectable `URLDataSession` protocol (not concrete `URLSession`) so it's
+      testable without touching the network.
+- [x] `Data/API/TIAGAEventStream.swift` — SSE wrapper for live updates
+      (device presence, agent state, streaming chat tokens) using
+      `URLSession.bytes(for:)` to parse `event:`/`data:` frames.
+- [x] `Data/API/SessionCookieStore.swift` — the real backend authenticates
       with a long, sliding **session cookie** (not a bearer token the client
-      manages) — `URLSession`'s shared `HTTPCookieStorage` handles this
-      naturally and persists across launches. No login screen lives in this
-      branch; it just configures the client to carry cookies correctly. The
-      actual login/waitlist flow is Section 3.
-- [ ] `Domain/Errors/APITransportError.swift` — infra-level failure states
-      (`unreachable`, `unauthorized`, `decodingFailed`) that feature
-      repositories translate into their own domain error cases — Views and
-      ViewModels never see this type directly.
-- [ ] Unit tests (`TIAGATests/APIClientTests.swift`):
-  - [ ] `test_apiClient_decodesSuccessfulResponse`
-  - [ ] `test_apiClient_mapsUnauthorizedStatusToTransportError`
-  - [ ] `test_apiClient_mapsUnreachableHostToTransportError`
+      manages) — `URLSession`'s shared `HTTPCookieStorage` handles attaching
+      it automatically; this type just checks presence and clears it on
+      logout. No login screen lives in this branch; the actual login/waitlist
+      flow is Section 3.
+- [x] `Domain/Errors/APITransportError.swift` — infra-level failure states
+      (`unreachable`, `unauthorized`, `decodingFailed`, `serverError(status:message:)`)
+      that feature repositories translate into their own domain error cases —
+      Views and ViewModels never see this type directly.
+- [x] Unit tests (`TIAGATests/APIClientTests.swift`), using a mock `URLDataSession`:
+  - [x] `test_apiClient_decodesSuccessfulResponse`
+  - [x] `test_apiClient_mapsUnauthorizedStatusToTransportError`
+  - [x] `test_apiClient_mapsUnreachableHostToTransportError`
 
 ---
 
