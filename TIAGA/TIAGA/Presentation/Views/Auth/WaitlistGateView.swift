@@ -23,15 +23,19 @@ struct WaitlistGateView: View {
                 .foregroundStyle(TIAGAColor.textPrimary)
                 .multilineTextAlignment(.center)
 
-            Text("TIAGA is in private beta. We'll email \(account.email) when a spot opens up — or enter an invite code below if you already have one.")
+            Text("TIAGA is in private beta. We'll email \(account.email) when a spot opens up.")
                 .font(TIAGATypography.subheadline)
                 .foregroundStyle(TIAGAColor.textSecondary)
                 .multilineTextAlignment(.center)
 
+            Text("Have an invite code?")
+                .font(TIAGATypography.caption)
+                .foregroundStyle(TIAGAColor.textTertiary)
+
             TextField(
                 "",
                 text: $viewModel.inviteCodeField,
-                prompt: Text("Invite code").foregroundStyle(TIAGAColor.textTertiary)
+                prompt: Text("TIAGA-XXXX-XXXX-XXXX").foregroundStyle(TIAGAColor.textTertiary)
             )
             .textInputAutocapitalization(.characters)
             .autocorrectionDisabled()
@@ -53,7 +57,7 @@ struct WaitlistGateView: View {
             Button {
                 Task { await viewModel.submitInviteCode() }
             } label: {
-                Text(viewModel.isSubmitting ? "Redeeming…" : "Redeem Code")
+                Text(viewModel.isSubmitting ? "…" : "Redeem")
                     .font(TIAGATypography.body)
                     .frame(maxWidth: .infinity)
             }

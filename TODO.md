@@ -379,6 +379,16 @@ container from Section 4 (this branch adds the overlay to it).
       colors at 75%/100% (`TIAGAColor.forContextUsage`). Don't reuse one
       threshold function for the other.
 - [ ] `Domain/Models/SubscriptionPlan.swift` — plan name/tier, renewal date.
+      **Note found while building Section 3:** the invite code an operator
+      redeems on the Waitlist Gate and a billing top-up/upgrade code are the
+      *same* backend system (`RedemptionCodes`, `/api/redeem` — each code
+      carries a `Tier` + `DurationDays`; redeeming always grants that plan).
+      There's also an admin-direct-grant path with no code at all
+      (`BillingService.GrantAsync`, from reviewing a beta application) — the
+      app doesn't need to model that; it just shows up as the account already
+      being `.active` on next login. If a future top-up/upgrade flow gets
+      built here, reuse the invite-code redemption plumbing from Section 3
+      rather than inventing a parallel one — same code type, same endpoint.
 - [ ] `Domain/Models/PrivacyPreference.swift` — resolved against
       `web/src/components/PrivacyPanel.tsx`: the (only) privacy switch is
       "Use my conversations to improve AI" — an opt-out of TIAGA's AI partners

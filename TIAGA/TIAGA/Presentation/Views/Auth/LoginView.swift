@@ -67,12 +67,16 @@ struct LoginView: View {
             .disabled(viewModel.isSubmitting)
 
             #if DEBUG
-            HStack(spacing: TIAGASpacing.md) {
-                Button("Fill Active Fixture") { viewModel.fillFixtureCredentials(active: true) }
-                Button("Fill Waitlisted Fixture") { viewModel.fillFixtureCredentials(active: false) }
+            // Xcode-canvas-only — never shows in an actual Simulator/device run,
+            // even in a DEBUG build. See ProcessInfo.isRunningInXcodePreview.
+            if ProcessInfo.isRunningInXcodePreview {
+                HStack(spacing: TIAGASpacing.md) {
+                    Button("Fill Active Fixture") { viewModel.fillFixtureCredentials(active: true) }
+                    Button("Fill Waitlisted Fixture") { viewModel.fillFixtureCredentials(active: false) }
+                }
+                .font(TIAGATypography.caption)
+                .foregroundStyle(TIAGAColor.textTertiary)
             }
-            .font(TIAGATypography.caption)
-            .foregroundStyle(TIAGAColor.textTertiary)
             #endif
 
             Spacer()

@@ -20,7 +20,7 @@ final class FakeAuthSessionRepository: AuthSessionRepository {
     /// Any login attempt with this email simulates a rate-limited backend.
     static let rateLimitedEmail = "ratelimited@tiaga.tech"
     /// The one code `redeemInviteCode` accepts.
-    static let validInviteCode = "WELCOME-TO-TIAGA"
+    static let validInviteCode = "TIAGA-DEMO-0001-BETA"
 
     /// Set on `logout()` to make its (fake) remote call fail — the local
     /// session must still clear regardless. Exists purely so
