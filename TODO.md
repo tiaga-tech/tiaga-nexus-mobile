@@ -95,7 +95,7 @@ decision — don't "finish the job" by wiring it in later without being asked.
 
 ---
 
-## 3. Auth (Login + Waitlist Gate) — `feature/auth`
+## 3. Auth (Login + Waitlist Gate) — `feature/auth` ✅
 
 Gates every other screen. TIAGA is in private beta — signing in successfully
 doesn't mean access; a `waitlisted` account must be shown the waitlist gate
@@ -104,60 +104,65 @@ instead of the fleet console until it's activated. Mirrors the web client's
 `AuthService.cs` and `web/src/hooks/useAuth.ts` / `web/src/components/WaitlistScreen.tsx`
 in the parent repo before naming anything here.
 
-- [ ] `Domain/Models/Account.swift` — email, `AccountStatus`, roles. DocC:
+- [x] `Domain/Models/Account.swift` — email, `AccountStatus`, roles. DocC:
       real-world entity = a signed-in TIAGA user; rule = authentication
-      succeeding does not imply product access.
-- [ ] `Domain/Models/AccountStatus.swift` — `.waitlisted`, `.active` (exact
+      succeeding does not imply product access. Also adds `AccountRole`
+      (`.admin`/`.developer`, additive set) — not surfaced anywhere yet.
+- [x] `Domain/Models/AccountStatus.swift` — `.waitlisted`, `.active` (exact
       values the real backend uses — do not add states it doesn't have).
-- [ ] `Domain/Repositories/AuthSessionRepository.swift` (protocol) —
+- [x] `Domain/Repositories/AuthSessionRepository.swift` (protocol) —
       `restoreSession()`, `login(email:password:)`, `redeemInviteCode(_:)`, `logout()`.
-- [ ] `Data/Repositories/FakeAuthSessionRepository.swift` — fixture-backed,
+- [x] `Data/Repositories/FakeAuthSessionRepository.swift` — fixture-backed,
       no network calls. Fixture accounts covering both routing branches and
       the error paths below: one `.active`, one `.waitlisted`, plus a
       wrong-password case and a rate-limited case. **No live backend
       integration** — see CLAUDE.md's testing-safety policy: TIAGA can
       dispatch real agents onto real machines, so nothing in this app talks
       to the real backend.
-- [ ] `UseCases/RestoreSessionUseCase.swift` — checks for a valid existing
+- [x] `UseCases/RestoreSessionUseCase.swift` — checks for a valid existing
       session on launch so a returning active user skips straight to the app.
-  - [ ] Typed error: `SessionRestoreError.connectionUnavailable`
-- [ ] `UseCases/LoginUseCase.swift`
-  - [ ] Business rule: email must be a plausible address, password non-empty
-  - [ ] Typed error: `LoginError` (`.invalidCredentials`, `.tooManyAttempts`, `.connectionUnavailable`)
-- [ ] `UseCases/RedeemInviteCodeUseCase.swift`
-  - [ ] Business rule: only meaningful for a `.waitlisted` account — redeeming
+  - [x] Typed error: `SessionRestoreError.connectionUnavailable`
+- [x] `UseCases/LoginUseCase.swift`
+  - [x] Business rule: email must be a plausible address, password non-empty
+  - [x] Typed error: `LoginError` (`.invalidCredentials`, `.tooManyAttempts`, `.connectionUnavailable`)
+- [x] `UseCases/RedeemInviteCodeUseCase.swift`
+  - [x] Business rule: only meaningful for a `.waitlisted` account — redeeming
         against an already-`.active` account is rejected rather than silently ignored
-  - [ ] Typed error: `InviteCodeError` (`.codeInvalid`, `.accountAlreadyActive`)
-- [ ] `UseCases/LogoutUseCase.swift` — business rule: always clears the local
+  - [x] Typed error: `InviteCodeError` (`.codeInvalid`, `.accountAlreadyActive`)
+- [x] `UseCases/LogoutUseCase.swift` — business rule: always clears the local
       session even if the remote invalidation call fails; a user must never
       be stuck "logged in" locally by a network error. No typed error — it
       cannot meaningfully fail from the operator's side. (UI trigger for this
       lives in Settings, Section 9 — defined here because it's session logic.)
-- [ ] `Presentation/ViewModels/AuthViewModel.swift` — drives launch routing:
-      `.unauthenticated` → Login, `.authenticated(.waitlisted)` → Waitlist Gate,
-      `.authenticated(.active)` → the Section 4 app shell.
-- [ ] `Presentation/Views/Auth/LoginView.swift` — email + password, submit,
+- [x] `Presentation/ViewModels/AuthViewModel.swift` — drives launch routing
+      (`Route`: `.checkingSession`/`.login`/`.waitlistGate`/`.authenticated`).
+- [x] `Presentation/Views/Auth/LoginView.swift` — email + password, submit,
       inline error text. **Login only — no sign-up screen** (accounts are
       created on the web today; confirm if that should change).
-- [ ] `LoginView` DEBUG-only "fill fixture credentials" affordance (one tap
+- [x] `LoginView` DEBUG-only "fill fixture credentials" affordance (one tap
       each for the `.active` and `.waitlisted` fixture accounts) so exercising
       both routing branches is convenient without typing anything.
-- [ ] `Presentation/Views/Auth/WaitlistGateView.swift` — "you're on the
-      waiting list" message + invite code field. **Assumption to confirm:**
-      the web waitlist screen also has a beta-application form; this mobile
-      version defaults to message + code redemption only (no application
-      form) since that's the action a mobile user is most likely to take on
-      the spot. Flag if the application form should be included too.
-- [ ] Unit tests (`TIAGATests/LoginUseCaseTests.swift`,
-      `RestoreSessionUseCaseTests.swift`, `RedeemInviteCodeUseCaseTests.swift`):
-  - [ ] `test_login_succeeds_withValidCredentials`
-  - [ ] `test_login_fails_withInvalidCredentials`
-  - [ ] `test_login_fails_whenRateLimited`
-  - [ ] `test_restoreSession_returnsActiveAccount_whenSessionIsValid`
-  - [ ] `test_restoreSession_returnsUnauthenticated_whenNoSessionExists`
-  - [ ] `test_redeemInviteCode_activatesWaitlistedAccount_whenCodeIsValid`
-  - [ ] `test_redeemInviteCode_fails_whenCodeIsInvalid`
-  - [ ] `test_redeemInviteCode_fails_whenAccountIsAlreadyActive`
+- [x] `Presentation/Views/Auth/WaitlistGateView.swift` — "you're on the
+      waiting list" message + invite code field. **Assumption resolved as
+      planned:** message + code redemption only, no beta-application form —
+      flag if that should change.
+- [x] `ContentView.swift` repurposed as the routing root (switches on
+      `AuthViewModel.route`), plus a temporary `AuthenticatedPlaceholderView`
+      (welcome text + Log Out) so the auth loop is fully closeable for manual
+      testing until Section 4 replaces it with the real fleet-console shell.
+- [x] Unit tests (`TIAGATests/LoginUseCaseTests.swift`,
+      `RestoreSessionUseCaseTests.swift`, `RedeemInviteCodeUseCaseTests.swift`,
+      `LogoutUseCaseTests.swift`) — 11 total, 3 beyond the listed minimum
+      (malformed-email, restore-session-connectivity-failure, and the
+      logout-resilience rule each got their own test):
+  - [x] `test_login_succeeds_withValidCredentials`
+  - [x] `test_login_fails_withInvalidCredentials`
+  - [x] `test_login_fails_whenRateLimited`
+  - [x] `test_restoreSession_returnsActiveAccount_whenSessionIsValid`
+  - [x] `test_restoreSession_returnsUnauthenticated_whenNoSessionExists`
+  - [x] `test_redeemInviteCode_activatesWaitlistedAccount_whenCodeIsValid`
+  - [x] `test_redeemInviteCode_fails_whenCodeIsInvalid`
+  - [x] `test_redeemInviteCode_fails_whenAccountIsAlreadyActive`
 
 ---
 
