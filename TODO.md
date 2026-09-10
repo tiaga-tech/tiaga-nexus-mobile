@@ -15,6 +15,8 @@ architecture rules — this file is the ordered task list, that file is the why.
 - [ ] Order below is dependency order (each section only needs what already landed) — do not reorder without checking what a later section assumes exists.
 - [ ] Before opening any PR touching UI: boot a simulator, build, install, launch, and screenshot each new/changed screen (`xcrun simctl io booted screenshot`) and actually look at it — see CLAUDE.md's Testing section for the exact commands. Then still include a manual visual-confirmation checklist in the test plan for whatever that static screenshot pass can't cover (interactive multi-step flows, final polish) — the user runs those, Claude doesn't.
 - [ ] Every repository is fixture-backed (`Fake*Repository`) — **the app never talks to the real TIAGA backend.** TIAGA can dispatch real agents onto real machines; a `Remote*Repository` wired into the running app would mean casual manual testing sends real chat messages, real approvals, and real kills against a real account. See CLAUDE.md's testing-safety policy before building any repository implementation.
+- [ ] Screenshot every screen a PR adds or changes (not just the launch screen — use a DEBUG route override per screen), commit them to `docs/screenshots/`, and embed them in the PR body as a grid (HTML table, width-capped `<img>`s) — see CLAUDE.md's Testing section for the exact URL form (this repo is private) and the before/after pattern for a PR that changes an existing screen's UI.
+- [ ] The moment the user says something merged: `git checkout main && git pull`, delete that branch locally (`git branch -d`), `git fetch --prune` — without being asked.
 
 ---
 
