@@ -14,6 +14,7 @@ architecture rules — this file is the ordered task list, that file is the why.
 - [ ] Every Use Case gets a typed domain error enum whose messages are written for the operator, not a developer — no "something went wrong".
 - [ ] Order below is dependency order (each section only needs what already landed) — do not reorder without checking what a later section assumes exists.
 - [ ] Every PR touching UI includes a manual visual-confirmation checklist in its test plan (one concrete, checkable line per screen/state that needs eyes on a real render) — the user runs these, Claude doesn't.
+- [ ] Every repository is fixture-backed (`Fake*Repository`) — **the app never talks to the real TIAGA backend.** TIAGA can dispatch real agents onto real machines; a `Remote*Repository` wired into the running app would mean casual manual testing sends real chat messages, real approvals, and real kills against a real account. See CLAUDE.md's testing-safety policy before building any repository implementation.
 
 ---
 
@@ -62,6 +63,14 @@ conversion needed), error responses are `{ "error": "..." }`, and the live
 stream is Server-Sent Events at `GET /api/events` (not WebSocket — that's
 harness-only).
 
+**Status note (added after this section landed):** every later section now
+builds a `Fake*Repository`, not a `Remote*Repository` — see the testing-
+safety policy in CLAUDE.md and the Process checklist below. `TIAGAAPIClient`/
+`TIAGAEventStream`/`SessionCookieStore` stay as-is: correct, tested transport-
+layer plumbing that demonstrates the real contract, but nothing in the app
+constructs one against the live backend. That's a deliberate, not temporary,
+decision — don't "finish the job" by wiring it in later without being asked.
+
 - [x] `Data/API/TIAGAAPIClient.swift` — base HTTP client (base URL, request
       building, JSON decoding, response/status handling). Built against an
       injectable `URLDataSession` protocol (not concrete `URLSession`) so it's
@@ -102,7 +111,13 @@ in the parent repo before naming anything here.
       values the real backend uses — do not add states it doesn't have).
 - [ ] `Domain/Repositories/AuthSessionRepository.swift` (protocol) —
       `restoreSession()`, `login(email:password:)`, `redeemInviteCode(_:)`, `logout()`.
-- [ ] `Data/Repositories/RemoteAuthSessionRepository.swift`
+- [ ] `Data/Repositories/FakeAuthSessionRepository.swift` — fixture-backed,
+      no network calls. Fixture accounts covering both routing branches and
+      the error paths below: one `.active`, one `.waitlisted`, plus a
+      wrong-password case and a rate-limited case. **No live backend
+      integration** — see CLAUDE.md's testing-safety policy: TIAGA can
+      dispatch real agents onto real machines, so nothing in this app talks
+      to the real backend.
 - [ ] `UseCases/RestoreSessionUseCase.swift` — checks for a valid existing
       session on launch so a returning active user skips straight to the app.
   - [ ] Typed error: `SessionRestoreError.connectionUnavailable`
@@ -124,6 +139,9 @@ in the parent repo before naming anything here.
 - [ ] `Presentation/Views/Auth/LoginView.swift` — email + password, submit,
       inline error text. **Login only — no sign-up screen** (accounts are
       created on the web today; confirm if that should change).
+- [ ] `LoginView` DEBUG-only "fill fixture credentials" affordance (one tap
+      each for the `.active` and `.waitlisted` fixture accounts) so exercising
+      both routing branches is convenient without typing anything.
 - [ ] `Presentation/Views/Auth/WaitlistGateView.swift` — "you're on the
       waiting list" message + invite code field. **Assumption to confirm:**
       the web waitlist screen also has a beta-application form; this mobile
@@ -157,8 +175,8 @@ Section 3 routes here). Introduces the `Agent` domain model (previously only
       `.agentChat(AgentIdentifier)`, `.devices`, `.settings`.
 - [ ] `Domain/Repositories/AgentRosterRepository.swift` (protocol) — list/observe
       the operator's agents.
-- [ ] `Data/Repositories/RemoteAgentRosterRepository.swift` — implementation on
-      `TIAGAAPIClient`/`TIAGAEventStream`.
+- [ ] `Data/Repositories/FakeAgentRosterRepository.swift` — fixture-backed
+      roster (a few agents spanning every `AgentState`), no network calls.
 - [ ] `UseCases/ListAgentRosterUseCase.swift` — business rule: running/compacting
       agents sort before idle, idle before error, ties broken by most-recent
       activity — an operator scanning the menu should see what needs attention first.
@@ -196,7 +214,11 @@ Voice is explicitly out of scope: no mic input, no spoken output, text only.
       send a message, observe the live transcript (messages + tool usage,
       merged in chronological order), observe context usage, reset the
       conversation, fetch dynamic UI card history.
-- [ ] `Data/Repositories/RemoteOrchestratorConversationRepository.swift`
+- [ ] `Data/Repositories/FakeOrchestratorConversationRepository.swift` —
+      fixture-backed: canned replies (with an artificial short delay to
+      exercise the "busy" state honestly) and a scripted context-usage ramp
+      so the 75%/100% color thresholds are actually reachable in testing. No
+      real LLM, no network — see CLAUDE.md's testing-safety policy.
 - [ ] `UseCases/SendChatMessageUseCase.swift` — reusable for both this feature
       and Agent Chat (takes a `ConversationTarget`: `.orchestrator` or
       `.agent(AgentIdentifier)`).
@@ -264,7 +286,10 @@ do not duplicate them.
 - [ ] `Domain/Models/DevicePresence.swift` — `.online` / `.offline`, derived
       from `lastSeenAt` against a staleness threshold, not trusted as a raw
       server flag (a device can go dark without sending a final "offline" event).
-- [ ] `Domain/Repositories/DeviceFleetRepository.swift` (protocol) + `Data/Repositories/RemoteDeviceFleetRepository.swift`
+- [ ] `Domain/Repositories/DeviceFleetRepository.swift` (protocol) +
+      `Data/Repositories/FakeDeviceFleetRepository.swift` — fixture devices
+      spanning online/offline/stale-heartbeat (for the boundary test below)
+      plus an injectable failure mode for `fleetUnreachable`. No network.
 - [ ] `UseCases/ObserveDeviceFleetUseCase.swift`
   - [ ] Business rule: a device is `.offline` if `lastSeenAt` is older than the
         staleness threshold, even if the last reported state was online
@@ -299,7 +324,12 @@ container from Section 4 (this branch adds the overlay to it).
       `expiresAt`.
 - [ ] `Domain/Repositories/PermissionRequestRepository.swift` (protocol) —
       observe the live stream of pending requests app-wide, `approve(_:)`, `deny(_:)`.
-- [ ] `Data/Repositories/RemotePermissionRequestRepository.swift`
+- [ ] `Data/Repositories/FakePermissionRequestRepository.swift` — fixture
+      requests with a realistic (fabricated, harmless) command/diff sample so
+      the approval UI's visual weight is genuinely exercised, plus one request
+      close to its `expiresAt` to exercise `.expiringSoon`. Approve/deny only
+      ever mutate the in-memory fixture — no real command is ever authorized
+      to run anywhere. No network.
 - [ ] Extend `Domain/Repositories/DeviceFleetRepository.swift` (Section 7) with
       `setProtectionEnabled(_:for:)`.
 - [ ] `UseCases/ReviewPermissionRequestUseCase.swift` — approve or deny.
@@ -351,7 +381,9 @@ container from Section 4 (this branch adds the overlay to it).
       usage allowance faster (the real UI shows this exact warning inline —
       carry it over verbatim in the human-facing copy, it's a real product
       constraint, not filler text).
-- [ ] `Domain/Repositories/AccountRepository.swift` (protocol) + `Data/Repositories/RemoteAccountRepository.swift`
+- [ ] `Domain/Repositories/AccountRepository.swift` (protocol) +
+      `Data/Repositories/FakeAccountRepository.swift` — fixture usage/plan
+      data plus an injectable failure mode for `accountUnreachable`. No network.
 - [ ] `UseCases/LoadAccountUsageUseCase.swift`
   - [ ] Typed error: `AccountUsageError.accountUnreachable`
 - [ ] `UseCases/UpdatePrivacyPreferenceUseCase.swift`
