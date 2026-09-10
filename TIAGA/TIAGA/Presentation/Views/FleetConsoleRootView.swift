@@ -88,6 +88,11 @@ struct FleetConsoleRootView: View {
         }
         .background(TIAGAColor.background)
         .animation(.easeInOut(duration: 0.25), value: isSideMenuOpen)
+        // Starts as soon as the fleet console appears, not lazily when the
+        // drawer is first opened — otherwise the agent rows are still empty
+        // when the drawer's opening animation begins and pop in a moment
+        // later, unanimated, instead of sliding in with everything else.
+        .task { await sideMenuViewModel.load() }
     }
 
     @ViewBuilder

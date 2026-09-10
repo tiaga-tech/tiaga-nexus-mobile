@@ -31,7 +31,6 @@ struct SideMenuView: View {
         // to refract against — a translucent panel background here would
         // just be showing through to the dimming scrim behind it, not glass.
         .background(TIAGAColor.background)
-        .task { await viewModel.load() }
     }
 
     private var menuContent: some View {
