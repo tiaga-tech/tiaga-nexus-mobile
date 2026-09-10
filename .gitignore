@@ -60,3 +60,7 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
+
+# Local editor/LSP tooling (machine-specific absolute paths)
+buildServer.json
+.nvim/
