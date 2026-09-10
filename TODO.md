@@ -168,38 +168,45 @@ in the parent repo before naming anything here.
 
 ---
 
-## 4. Side Menu — `feature/side-menu`
+## 4. Side Menu — `feature/side-menu` ✅
 
 Navigation shell for an authenticated, `.active` account (reached only after
 Section 3 routes here). Introduces the `Agent` domain model (previously only
 `AgentState` existed).
 
-- [ ] `Domain/Models/Agent.swift` — `AgentIdentifier`, display name, `AgentState`,
+- [x] `Domain/Models/Agent.swift` — `AgentIdentifier`, display name, `AgentState`,
       pinned `DeviceIdentifier`, last-activity summary, context-usage fraction.
       DocC: real-world entity = a persistent named agent; rule = it is always
-      pinned to exactly one device from spawn.
-- [ ] `Domain/Models/AppRoute.swift` — navigation destinations: `.chat`,
+      pinned to exactly one device from spawn. Also adds `Domain/Models/DeviceIdentifier.swift`
+      (ahead of the full `Device` model, Section 7 — `Agent` needs to reference
+      its pinned device now).
+- [x] `Domain/Models/AppRoute.swift` — navigation destinations: `.chat`,
       `.agentChat(AgentIdentifier)`, `.devices`, `.settings`.
-- [ ] `Domain/Repositories/AgentRosterRepository.swift` (protocol) — list/observe
+- [x] `Domain/Repositories/AgentRosterRepository.swift` (protocol) — list/observe
       the operator's agents.
-- [ ] `Data/Repositories/FakeAgentRosterRepository.swift` — fixture-backed
+- [x] `Data/Repositories/FakeAgentRosterRepository.swift` — fixture-backed
       roster (a few agents spanning every `AgentState`), no network calls.
-- [ ] `UseCases/ListAgentRosterUseCase.swift` — business rule: running/compacting
+- [x] `UseCases/ListAgentRosterUseCase.swift` — business rule: running/compacting
       agents sort before idle, idle before error, ties broken by most-recent
       activity — an operator scanning the menu should see what needs attention first.
-  - [ ] Typed error: `AgentRosterError` (`.fleetUnreachable`)
-- [ ] `Presentation/ViewModels/SideMenuViewModel.swift`
-- [ ] `Presentation/Views/SideMenuView.swift` — replaces the current stub.
+  - [x] Typed error: `AgentRosterError` (`.fleetUnreachable`)
+- [x] `Presentation/ViewModels/SideMenuViewModel.swift`
+- [x] `Presentation/Views/SideMenuView.swift` — replaces the current stub.
       Rows: "Chat" (fixed, always first), agent list (name + `StatusPill`),
       "Devices", "Settings".
-- [ ] Root navigation container wiring the menu to a detail pane, routing to
-      placeholder screens for Chat/Devices/Settings/Agent Chat until their
-      branches land.
-- [ ] Unit tests (`TIAGATests/ListAgentRosterUseCaseTests.swift`):
-  - [ ] `test_listAgentRoster_ordersRunningAgentsBeforeIdle`
-  - [ ] `test_listAgentRoster_ordersErrorAgentsAfterIdle`
-  - [ ] `test_listAgentRoster_breaksTiesByMostRecentActivity`
-  - [ ] `test_listAgentRoster_fails_whenFleetIsUnreachable`
+- [x] `Presentation/Views/FleetConsoleRootView.swift` — `NavigationSplitView`
+      wiring the menu to a detail pane, routing to placeholder screens for
+      Chat/Devices/Settings/Agent Chat until their branches land. Settings'
+      placeholder carries Log Out (its real future home). `ContentView`'s
+      `.authenticated` case now routes here instead of the old temporary
+      placeholder from Section 3.
+- [x] DEBUG route-override pattern extended to this ViewModel too
+      (`TIAGA_DEBUG_SELECTED_ROUTE`), per CLAUDE.md's screenshot-tooling policy.
+- [x] Unit tests (`TIAGATests/ListAgentRosterUseCaseTests.swift`):
+  - [x] `test_listAgentRoster_ordersRunningAgentsBeforeIdle`
+  - [x] `test_listAgentRoster_ordersErrorAgentsAfterIdle`
+  - [x] `test_listAgentRoster_breaksTiesByMostRecentActivity`
+  - [x] `test_listAgentRoster_fails_whenFleetIsUnreachable`
 
 ---
 
