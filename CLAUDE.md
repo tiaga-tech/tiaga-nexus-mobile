@@ -253,6 +253,20 @@ each `<img>`, a few screens per row:
 Reuse a name across PRs when it's the same screen (the file just gets
 replaced/updated) rather than accumulating `-v2`/`-v3` copies.
 
+**If the PR changes an existing screen's UI (not just adding a new one),
+show old vs. new side by side** — don't just silently overwrite the
+screenshot and let the reviewer dig through the Files-changed tab. No need
+for a separate `-before` file: find the commit that last touched that
+screenshot (`git log -1 --format=%H -- docs/screenshots/<name>.png`, checked
+*before* overwriting it) and link that SHA's blob for "before" next to the
+current branch's blob for "after", in the same grid table:
+```html
+<table><tr>
+<td align="center"><b>Before</b><br><img src="https://github.com/tiaga-tech/tiaga-nexus-mobile/blob/<old-sha>/docs/screenshots/<name>.png?raw=true" width="240"></td>
+<td align="center"><b>After</b><br><img src="https://github.com/tiaga-tech/tiaga-nexus-mobile/blob/<branch>/docs/screenshots/<name>.png?raw=true" width="240"></td>
+</tr></table>
+```
+
 ## Git workflow
 
 - **Never commit directly to `main`.** Every change — including docs — happens
@@ -268,6 +282,11 @@ replaced/updated) rather than accumulating `-v2`/`-v3` copies.
   commits.
 - One feature branch at a time: finish it (including its tests), stop, wait
   for review/merge, then start the next.
+- **Whenever the user says something merged, clean up immediately** —
+  `git checkout main && git pull`, `git branch -d <merged-branch>` (safe
+  delete; if it refuses, the branch has unmerged work — stop and check
+  rather than forcing it), `git fetch --prune`. Do this without being asked
+  each time.
 
 ## Current status
 
