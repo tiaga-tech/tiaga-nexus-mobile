@@ -36,6 +36,11 @@ enum TIAGAIcon {
     static let menuChat = "bubble.left.and.bubble.right.fill"
     static let menuDevices = "server.rack"
     static let menuSettings = "gearshape.fill"
+
+    // MARK: Chrome
+
+    static let sideMenuToggle = "line.3.horizontal"
+    static let close = "xmark"
 }
 
 // MARK: - Domain state → icon mapping

@@ -194,14 +194,25 @@ Section 3 routes here). Introduces the `Agent` domain model (previously only
 - [x] `Presentation/Views/SideMenuView.swift` — replaces the current stub.
       Rows: "Chat" (fixed, always first), agent list (name + `StatusPill`),
       "Devices", "Settings".
-- [x] `Presentation/Views/FleetConsoleRootView.swift` — `NavigationSplitView`
-      wiring the menu to a detail pane, routing to placeholder screens for
-      Chat/Devices/Settings/Agent Chat until their branches land. Settings'
-      placeholder carries Log Out (its real future home). `ContentView`'s
-      `.authenticated` case now routes here instead of the old temporary
-      placeholder from Section 3.
+- [x] `Presentation/Views/FleetConsoleRootView.swift` — a hamburger-triggered
+      slide-out drawer (not `NavigationSplitView` — that read as a column
+      nav with a back-arrow, no explicit close, no swipe-to-dismiss, none of
+      which is what "side menu" means here) wiring the menu to a detail
+      pane, routing to placeholder screens for Chat/Devices/Settings/Agent
+      Chat until their branches land. Settings' placeholder carries Log Out
+      (its real future home). `ContentView`'s `.authenticated` case now
+      routes here instead of the old temporary placeholder from Section 3.
+      The drawer is a native Liquid Glass overlay (see CLAUDE.md's Design
+      System section for the lessons from getting this wrong on the first
+      few passes): hamburger toggle, tap-scrim-to-close, drag-to-dismiss,
+      an explicit glass close button, `.buttonStyle(.glassProminent)` for
+      the selected row, a shared `SideMenuRow` component so agents and
+      Chat/Devices/Settings look identical, and a plain (not glass)
+      panel background so the individual glass buttons render correctly
+      instead of merging into one flat surface.
 - [x] DEBUG route-override pattern extended to this ViewModel too
-      (`TIAGA_DEBUG_SELECTED_ROUTE`), per CLAUDE.md's screenshot-tooling policy.
+      (`TIAGA_DEBUG_SELECTED_ROUTE`, plus a `"sideMenu"` value to land on the
+      drawer itself), per CLAUDE.md's screenshot-tooling policy.
 - [x] Unit tests (`TIAGATests/ListAgentRosterUseCaseTests.swift`):
   - [x] `test_listAgentRoster_ordersRunningAgentsBeforeIdle`
   - [x] `test_listAgentRoster_ordersErrorAgentsAfterIdle`

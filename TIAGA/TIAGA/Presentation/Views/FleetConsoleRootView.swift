@@ -5,56 +5,122 @@
 
 import SwiftUI
 
-/// The fleet console shown to an authenticated `.active` account: the side
-/// menu plus a detail pane. Chat, Devices, and Agent Chat are placeholders
-/// until their own sections land; Settings' placeholder carries Log Out
-/// since that's its real future home (see `LogoutUseCase`'s doc comment).
+/// The fleet console shown to an authenticated `.active` account: a
+/// hamburger-triggered slide-out drawer (the side menu) over the current
+/// screen. Chat, Devices, and Agent Chat are placeholders until their own
+/// sections land; Settings' placeholder carries Log Out since that's its
+/// real future home (see `LogoutUseCase`'s doc comment).
 struct FleetConsoleRootView: View {
     let account: Account
     @ObservedObject var authViewModel: AuthViewModel
     @StateObject private var sideMenuViewModel = SideMenuViewModel()
-    @State private var selectedRoute: AppRoute?
+    @State private var selectedRoute: AppRoute
+    @State private var isSideMenuOpen: Bool
+    @State private var dragOffset: CGFloat = 0
+
+    private let sideMenuWidth: CGFloat = 300
+    /// Dragging the drawer left past this fraction of its width closes it.
+    private let dismissDragFraction: CGFloat = 0.3
 
     init(account: Account, authViewModel: AuthViewModel) {
         self.account = account
         self.authViewModel = authViewModel
         #if DEBUG
-        if ProcessInfo.processInfo.environment["TIAGA_DEBUG_SELECTED_ROUTE"] == "sideMenu" {
-            _selectedRoute = State(initialValue: nil)
-        } else {
-            _selectedRoute = State(initialValue: Self.debugInitialRoute() ?? .chat)
-        }
+        let rawSelectedRoute = ProcessInfo.processInfo.environment["TIAGA_DEBUG_SELECTED_ROUTE"]
+        _isSideMenuOpen = State(initialValue: rawSelectedRoute == "sideMenu")
+        _selectedRoute = State(initialValue: Self.debugRoute(from: rawSelectedRoute) ?? .chat)
         #else
+        _isSideMenuOpen = State(initialValue: false)
         _selectedRoute = State(initialValue: .chat)
         #endif
     }
 
     var body: some View {
-        NavigationSplitView {
-            SideMenuView(viewModel: sideMenuViewModel, selectedRoute: $selectedRoute)
-        } detail: {
+        ZStack(alignment: .leading) {
             NavigationStack {
-                switch selectedRoute {
-                case .chat, .none:
-                    PlaceholderDetailView(title: "Chat")
-                case .agentChat(let agentID):
-                    PlaceholderDetailView(title: "Agent Chat", subtitle: agentID.rawValue)
-                case .devices:
-                    PlaceholderDetailView(title: "Devices")
-                case .settings:
-                    SettingsPlaceholderView(account: account, authViewModel: authViewModel)
-                }
+                detailView(for: selectedRoute)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button {
+                                openMenu()
+                            } label: {
+                                Image(systemName: TIAGAIcon.sideMenuToggle)
+                                    .foregroundStyle(TIAGAColor.textPrimary)
+                            }
+                        }
+                    }
+            }
+            .disabled(isSideMenuOpen)
+
+            if isSideMenuOpen {
+                Color.black.opacity(0.35)
+                    .ignoresSafeArea()
+                    .onTapGesture { closeMenu() }
+                    .transition(.opacity)
+
+                SideMenuView(
+                    viewModel: sideMenuViewModel,
+                    selectedRoute: selectedRoute,
+                    onSelectRoute: { route in
+                        selectedRoute = route
+                        closeMenu()
+                    },
+                    onClose: { closeMenu() }
+                )
+                .frame(width: sideMenuWidth)
+                .frame(maxHeight: .infinity)
+                .offset(x: dragOffset)
+                .transition(.move(edge: .leading))
+                .gesture(
+                    DragGesture()
+                        .onChanged { value in
+                            dragOffset = min(0, value.translation.width)
+                        }
+                        .onEnded { value in
+                            if value.translation.width < -sideMenuWidth * dismissDragFraction {
+                                closeMenu()
+                            } else {
+                                withAnimation(.easeOut(duration: 0.2)) { dragOffset = 0 }
+                            }
+                        }
+                )
             }
         }
         .background(TIAGAColor.background)
+        .animation(.easeInOut(duration: 0.25), value: isSideMenuOpen)
+    }
+
+    @ViewBuilder
+    private func detailView(for route: AppRoute) -> some View {
+        switch route {
+        case .chat:
+            PlaceholderDetailView(title: "Chat")
+        case .agentChat(let agentID):
+            PlaceholderDetailView(title: "Agent Chat", subtitle: agentID.rawValue)
+        case .devices:
+            PlaceholderDetailView(title: "Devices")
+        case .settings:
+            SettingsPlaceholderView(account: account, authViewModel: authViewModel)
+        }
+    }
+
+    private func openMenu() {
+        dragOffset = 0
+        withAnimation(.easeInOut(duration: 0.25)) { isSideMenuOpen = true }
+    }
+
+    private func closeMenu() {
+        withAnimation(.easeInOut(duration: 0.25)) { isSideMenuOpen = false }
+        dragOffset = 0
     }
 
     #if DEBUG
     /// Screenshot/QA tooling only — lets `xcrun simctl launch` land straight
-    /// on a specific detail pane (via SIMCTL_CHILD_TIAGA_DEBUG_SELECTED_ROUTE)
-    /// without driving real taps. Never present in a Release build.
-    private static func debugInitialRoute() -> AppRoute? {
-        switch ProcessInfo.processInfo.environment["TIAGA_DEBUG_SELECTED_ROUTE"] {
+    /// on a specific screen, or the drawer itself ("sideMenu"), via
+    /// SIMCTL_CHILD_TIAGA_DEBUG_SELECTED_ROUTE, without driving real taps.
+    /// Never present in a Release build.
+    private static func debugRoute(from raw: String?) -> AppRoute? {
+        switch raw {
         case "chat": return .chat
         case "devices": return .devices
         case "settings": return .settings
@@ -87,6 +153,7 @@ private struct PlaceholderDetailView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(TIAGAColor.background)
         .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -116,5 +183,6 @@ private struct SettingsPlaceholderView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(TIAGAColor.background)
         .navigationTitle("Settings")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
