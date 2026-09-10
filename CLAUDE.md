@@ -96,16 +96,35 @@ currently hold a `.gitkeep`; delete it the moment real content lands there.
 Every color, spacing value, corner radius, and font in a View must come from
 a token in `TIAGA/TIAGA/DesignSystem/`:
 
+**The app is dark-only**, matching the real TIAGA web client's actual visual
+identity — not an invented light theme. Ground every token in the real
+product's code, specifically **`web/` (v1), not `web-v2/`** — v1 is the
+"glass" aesthetic (near-black canvas, translucent blurred panels, `Inter`,
+Tailwind's default palette) that's actually shipping; v2's flat canvas/ink/
+accent CSS variables are a different, unrelated visual direction. When in
+doubt, grep `web/src/components/*.tsx` for the real Tailwind classes before
+picking a value.
+
 - `TIAGAColor` — semantic tokens backed by `Assets.xcassets/Colors/*.colorset`
-  (each has light + dark variants; the brand palette is TIAGA's real palette —
-  see the colorset values, sourced from `web-v2/src/index.css` in the parent
-  repo). Includes domain-state mappings (`forAgentState`, `forDevicePresence`,
-  `forPermissionUrgency`) so a state enum, not a raw color, decides what an
-  operator sees.
+  (single-appearance, no light variant). Sourced from v1: background `#05070d`
+  (`App.tsx`), surfaces as translucent white (`--glass-bg: rgba(255,255,255,.05)`,
+  `border-white/10`), brand accent Tailwind blue-500 `#3b82f6` (primary
+  buttons, the switch-on state), status colors emerald-400/amber-400/red-500/
+  sky-300. Notably **offline is `statusDanger` (red), not a neutral color** —
+  that's the real product's own choice (`DevicesPane.tsx`), not a mistake to
+  "fix". Includes domain-state mappings (`forAgentState`, `forDevicePresence`,
+  `forPermissionUrgency`, `forContextUsage`) so a state enum, not a raw color,
+  decides what an operator sees.
 - `TIAGASpacing` — 4pt-based scale (`xs` … `xxxl`).
 - `TIAGARadius` — corner radius scale (`xs` … `xl`, plus `pill`).
 - `TIAGATypography` — Dynamic-Type-based font tokens, including a monospaced
   `command` token for showing shell commands/diffs on approval cards.
+- Glass panels (`TIAGACard`, `ChatComposerBar`) use a real SwiftUI `Material`
+  (`.ultraThinMaterial`) for the blur, not a flat color — that's the native
+  equivalent of the web client's `backdrop-blur-xl` `.glass` class. Flat
+  translucent fills (`TIAGAColor.surface`/`surfaceElevated`) are for small
+  chips/badges that aren't blurred in the real product either (status pills,
+  meter tracks).
 
 Never write `Color(red:green:blue:)`, a raw hex, a bare `.font(.system(size:))`,
 or a bare numeric literal in `.padding()` / `.cornerRadius()` inside a View.

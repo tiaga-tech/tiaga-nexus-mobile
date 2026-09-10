@@ -16,28 +16,34 @@ architecture rules — this file is the ordered task list, that file is the why.
 
 ---
 
-## 1. Design System — `feature/design-system`
+## 1. Design System — `feature/design-system` ✅
 
-Foundation every later screen consumes. Extends what already exists
-(`TIAGAColor`, `TIAGASpacing`, `TIAGARadius`, `TIAGATypography`, the
-`Colors.xcassets` set, `AgentState`, `PermissionRequestUrgency`).
+Foundation every later screen consumes. Built from scratch on the bare
+project scaffold: `TIAGAColor`, `TIAGASpacing`, `TIAGARadius`, `TIAGATypography`,
+the `Colors.xcassets` set, and the `AgentState`/`PermissionRequestUrgency`
+domain models the color mappings need.
 
-- [ ] `TIAGAIcon` — SF Symbol tokens for: device types (macOS/Windows/Linux),
+**Revision:** the first pass wrongly grounded colors in `web-v2/`'s flat
+canvas/ink/accent palette. Corrected to `web/` (v1) — the actual shipping
+"glass" aesthetic (dark-only, translucent blurred panels, Tailwind's default
+palette, blue-500 accent). See CLAUDE.md's Design System section.
+
+- [x] `TIAGAIcon` — SF Symbol tokens for: device types (macOS/Windows/Linux),
       agent state, tool-usage kinds, side menu entries (chat/devices/settings).
-- [ ] `TIAGAColor.forContextUsage(percentage:)` — green → amber → red, amber at
+- [x] `TIAGAColor.forContextUsage(percentage:)` — green → amber → red, amber at
       75% (mirrors the real product's compaction threshold), red at 100%.
       This is the color source for the Chat context bar.
-- [ ] Reusable component primitives (`Presentation/Components/`):
-  - [ ] `TIAGACard` — surface container (background, radius, padding from tokens)
-  - [ ] `StatusPill` — label + dot, color driven by an `AgentState` or presence bool, never a raw color
-  - [ ] `MessageBubble` — user / orchestrator-or-agent / tool-usage row styles
-  - [ ] `ContextUsageBar` — horizontal bar bound to a 0–1 fraction, colored via `forContextUsage`
-  - [ ] `ChatComposerBar` — the shared text-input-and-send control used by both Chat and Agent Chat (no mic button — voice is explicitly out of scope)
-- [ ] Unit tests (`TIAGATests/DesignSystemTests.swift`):
-  - [ ] `test_forContextUsage_returnsSuccessColor_belowSeventyFivePercent`
-  - [ ] `test_forContextUsage_returnsWarningColor_atSeventyFivePercentBoundary`
-  - [ ] `test_forContextUsage_returnsDangerColor_atOneHundredPercent`
-  - [ ] `test_forAgentState_mapsCompactingToCompactingColor` (extend existing mapping tests if not already covered)
+- [x] Reusable component primitives (`Presentation/Components/`):
+  - [x] `TIAGACard` — surface container (background, radius, padding from tokens)
+  - [x] `StatusPill` — label + dot, color driven by an `AgentState` or presence bool, never a raw color
+  - [x] `MessageBubble` — user / orchestrator-or-agent / tool-usage row styles
+  - [x] `ContextUsageBar` — horizontal bar bound to a 0–1 fraction, colored via `forContextUsage`
+  - [x] `ChatComposerBar` — the shared text-input-and-send control used by both Chat and Agent Chat (no mic button — voice is explicitly out of scope)
+- [x] Unit tests (`TIAGATests/DesignSystemTests.swift`):
+  - [x] `test_forContextUsage_returnsSuccessColor_belowSeventyFivePercent`
+  - [x] `test_forContextUsage_returnsWarningColor_atSeventyFivePercentBoundary`
+  - [x] `test_forContextUsage_returnsDangerColor_atOneHundredPercent`
+  - [x] `test_forAgentState_mapsCompactingToCompactingColor` (extend existing mapping tests if not already covered)
 
 ---
 
@@ -319,14 +325,23 @@ container from Section 4 (this branch adds the overlay to it).
 
 ## 9. Settings — `feature/settings`
 
-- [ ] `Domain/Models/UsageSummary.swift` — tokens/requests used vs. plan quota,
-      current billing period.
+- [ ] `Domain/Models/UsageSummary.swift` — session (5-hour rolling window) and
+      weekly percentage-of-plan usage, resolved against `web/src/components/UsagePanel.tsx`:
+      admin accounts see actual dollar cost instead of a percentage (no plan
+      limits to meter against) — model that as a variant, not a special case
+      bolted onto the percentage path. **Note:** this is a *different* usage
+      metric from the Chat context bar (Section 5) — account/billing usage
+      colors at 60%/85% (`UsagePanel.tsx`'s `Meter`), context-window usage
+      colors at 75%/100% (`TIAGAColor.forContextUsage`). Don't reuse one
+      threshold function for the other.
 - [ ] `Domain/Models/SubscriptionPlan.swift` — plan name/tier, renewal date.
-- [ ] `Domain/Models/PrivacyPreference.swift` — **needs a decision from you
-      before building:** what does the privacy switch actually control? (e.g.
-      whether the memory/context tree persists conversation history vs. a
-      diagnostics-sharing toggle). Placeholder assumption below; confirm or
-      correct when this branch starts.
+- [ ] `Domain/Models/PrivacyPreference.swift` — resolved against
+      `web/src/components/PrivacyPanel.tsx`: the (only) privacy switch is
+      "Use my conversations to improve AI" — an opt-out of TIAGA's AI partners
+      using conversations for model training. Turning it off can burn through
+      usage allowance faster (the real UI shows this exact warning inline —
+      carry it over verbatim in the human-facing copy, it's a real product
+      constraint, not filler text).
 - [ ] `Domain/Repositories/AccountRepository.swift` (protocol) + `Data/Repositories/RemoteAccountRepository.swift`
 - [ ] `UseCases/LoadAccountUsageUseCase.swift`
   - [ ] Typed error: `AccountUsageError.accountUnreachable`
