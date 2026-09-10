@@ -87,7 +87,6 @@ struct FleetConsoleRootView: View {
             }
         }
         .background(TIAGAColor.background)
-        .animation(.easeInOut(duration: 0.25), value: isSideMenuOpen)
         // Starts as soon as the fleet console appears, not lazily when the
         // drawer is first opened — otherwise the agent rows are still empty
         // when the drawer's opening animation begins and pop in a moment
@@ -115,8 +114,15 @@ struct FleetConsoleRootView: View {
     }
 
     private func closeMenu() {
-        withAnimation(.easeInOut(duration: 0.25)) { isSideMenuOpen = false }
-        dragOffset = 0
+        // Both in the same transaction: a separate, unanimated dragOffset
+        // reset right after the animated flag flip competed with it for the
+        // same render pass, which is why closing (unlike opening) snapped
+        // shut instead of animating — a drag released mid-gesture would jump
+        // straight back to offset 0 before the removal transition even started.
+        withAnimation(.easeInOut(duration: 0.25)) {
+            isSideMenuOpen = false
+            dragOffset = 0
+        }
     }
 
     #if DEBUG
