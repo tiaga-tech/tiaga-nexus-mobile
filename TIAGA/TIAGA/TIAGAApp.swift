@@ -12,6 +12,9 @@ struct TIAGAApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                // TIAGA's visual identity is dark-only (see TIAGAColor) — force it
+                // regardless of the device's system appearance setting.
+                .preferredColorScheme(.dark)
         }
     }
 }

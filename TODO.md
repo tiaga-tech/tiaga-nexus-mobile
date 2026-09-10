@@ -23,6 +23,11 @@ project scaffold: `TIAGAColor`, `TIAGASpacing`, `TIAGARadius`, `TIAGATypography`
 the `Colors.xcassets` set, and the `AgentState`/`PermissionRequestUrgency`
 domain models the color mappings need.
 
+**Revision:** the first pass wrongly grounded colors in `web-v2/`'s flat
+canvas/ink/accent palette. Corrected to `web/` (v1) — the actual shipping
+"glass" aesthetic (dark-only, translucent blurred panels, Tailwind's default
+palette, blue-500 accent). See CLAUDE.md's Design System section.
+
 - [x] `TIAGAIcon` — SF Symbol tokens for: device types (macOS/Windows/Linux),
       agent state, tool-usage kinds, side menu entries (chat/devices/settings).
 - [x] `TIAGAColor.forContextUsage(percentage:)` — green → amber → red, amber at
@@ -320,14 +325,23 @@ container from Section 4 (this branch adds the overlay to it).
 
 ## 9. Settings — `feature/settings`
 
-- [ ] `Domain/Models/UsageSummary.swift` — tokens/requests used vs. plan quota,
-      current billing period.
+- [ ] `Domain/Models/UsageSummary.swift` — session (5-hour rolling window) and
+      weekly percentage-of-plan usage, resolved against `web/src/components/UsagePanel.tsx`:
+      admin accounts see actual dollar cost instead of a percentage (no plan
+      limits to meter against) — model that as a variant, not a special case
+      bolted onto the percentage path. **Note:** this is a *different* usage
+      metric from the Chat context bar (Section 5) — account/billing usage
+      colors at 60%/85% (`UsagePanel.tsx`'s `Meter`), context-window usage
+      colors at 75%/100% (`TIAGAColor.forContextUsage`). Don't reuse one
+      threshold function for the other.
 - [ ] `Domain/Models/SubscriptionPlan.swift` — plan name/tier, renewal date.
-- [ ] `Domain/Models/PrivacyPreference.swift` — **needs a decision from you
-      before building:** what does the privacy switch actually control? (e.g.
-      whether the memory/context tree persists conversation history vs. a
-      diagnostics-sharing toggle). Placeholder assumption below; confirm or
-      correct when this branch starts.
+- [ ] `Domain/Models/PrivacyPreference.swift` — resolved against
+      `web/src/components/PrivacyPanel.tsx`: the (only) privacy switch is
+      "Use my conversations to improve AI" — an opt-out of TIAGA's AI partners
+      using conversations for model training. Turning it off can burn through
+      usage allowance faster (the real UI shows this exact warning inline —
+      carry it over verbatim in the human-facing copy, it's a real product
+      constraint, not filler text).
 - [ ] `Domain/Repositories/AccountRepository.swift` (protocol) + `Data/Repositories/RemoteAccountRepository.swift`
 - [ ] `UseCases/LoadAccountUsageUseCase.swift`
   - [ ] Typed error: `AccountUsageError.accountUnreachable`

@@ -5,9 +5,10 @@
 
 import SwiftUI
 
-/// A small label + colored dot used to show an agent's state or a device's
-/// online presence at a glance. Color always comes from a domain-state
-/// mapping (`TIAGAColor.forAgentState`/`forDevicePresence`) — never a raw color.
+/// A small tinted label used to show an agent's state or a device's online
+/// presence at a glance. Matches the real product's own status-badge style
+/// (a low-opacity fill of the status color, with matching text and dot) —
+/// color always comes from a domain-state mapping, never a raw color.
 struct StatusPill: View {
     let label: String
     let color: Color
@@ -19,11 +20,11 @@ struct StatusPill: View {
                 .frame(width: TIAGASpacing.xs, height: TIAGASpacing.xs)
             Text(label)
                 .font(TIAGATypography.caption)
-                .foregroundStyle(TIAGAColor.textSecondary)
+                .foregroundStyle(color)
         }
         .padding(.horizontal, TIAGASpacing.sm)
         .padding(.vertical, TIAGASpacing.xs)
-        .background(TIAGAColor.surfaceElevated)
+        .background(color.opacity(0.15))
         .clipShape(Capsule())
     }
 }
