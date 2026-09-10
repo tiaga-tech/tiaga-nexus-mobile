@@ -192,14 +192,66 @@ Minimum 8 tests across the 3+ Use Cases: happy path, boundary condition, and
 each error case per Use Case.
 
 Automated tests only cover logic — they don't catch a legibility bug like
-white-on-white placeholder text. Every PR's test plan must include a
-**manual visual-confirmation checklist**: one line per thing that needs eyes
-on a real render (new/changed screen, each visually distinct state — loading/
-empty/error, light vs. dark if it ever applies again, text contrast on new
-surfaces, anything a screenshot would actually catch that a unit test can't).
-The user runs these, not Claude — write them as concrete, checkable claims
-("Send button dims to ~30% opacity when the composer is empty"), not "looks
-good".
+white-on-white placeholder text.
+
+**Before opening any PR that touches UI, take a real screenshot and look at
+it** — don't just eyeball the code:
+```
+xcrun simctl boot <udid>                                  # once, if nothing's booted
+xcodebuild -project TIAGA.xcodeproj -scheme TIAGA -sdk iphonesimulator \
+  -destination 'id=<udid>' build
+xcrun simctl install booted <path-to-.app-in-DerivedData>
+xcrun simctl launch booted com.tiaga.TIAGA
+xcrun simctl io booted screenshot <path>.png               # then Read the png
+```
+This catches what a build/test pass can't: contrast, sizing, an element that's
+missing or in the wrong place, a token that renders differently than expected.
+`simctl` can't tap or type, so on its own it only reaches whatever screen the
+app lands on at launch. **Every screen a PR adds or changes needs its own
+screenshot**, not just the launch screen — reach the others with a DEBUG-only
+route override read from a launch environment variable (see
+`AuthViewModel.debugRouteOverride()` for the pattern), passed via
+`SIMCTL_CHILD_<VAR_NAME>=<value> xcrun simctl launch booted com.tiaga.TIAGA`.
+Extend that pattern for each new feature's ViewModel rather than inventing a
+different mechanism per section. It's still launch-state only — it can't
+verify a multi-step *interaction* (does tapping this button actually do the
+right thing) — so the **manual visual-confirmation checklist** in the PR's
+test plan is still required for that and for final polish/interaction feel.
+Write it as concrete, checkable claims ("Send button dims to ~30% opacity
+when the composer is empty"), not "looks good".
+
+**Every screenshot taken this way gets committed and embedded in the PR**,
+not just described in prose — save it to `docs/screenshots/<descriptive-name>.png`
+(outside `TIAGA/`, so it's never bundled into the app or shown in Xcode's
+navigator), commit it on the same branch as the change it documents, push,
+then embed it in the PR body/comment as a markdown image.
+
+**This repo is private — use the `blob`+`?raw=true` URL, not
+`raw.githubusercontent.com`:**
+`https://github.com/tiaga-tech/tiaga-nexus-mobile/blob/<branch>/docs/screenshots/<name>.png?raw=true`.
+`raw.githubusercontent.com` doesn't serve private-repo content without a
+short-lived signed token (confirmed: it 404s even right after pushing — that
+was a private-repo auth issue, not a CDN propagation delay). The `blob`
+form rides the viewer's own github.com session instead, so it works for an
+authenticated viewer with repo access. Neither form can be verified with an
+anonymous `curl` — GitHub masks private-repo resources as 404 either way — so
+after embedding, ask the user to confirm it actually renders for them rather
+than assuming success.
+
+**Lay multiple screenshots out in a grid, not stacked full-width** — a
+full-device-height PNG at full column width makes the PR body absurdly tall.
+Use a raw HTML table (GitHub renders HTML in PR bodies) with a `width` on
+each `<img>`, a few screens per row:
+```html
+<table><tr>
+<td><img src="...auth-login.png?raw=true" width="250"></td>
+<td><img src="...auth-waitlist-gate.png?raw=true" width="250"></td>
+<td><img src="...auth-authenticated-placeholder.png?raw=true" width="250"></td>
+</tr></table>
+```
+
+Reuse a name across PRs when it's the same screen (the file just gets
+replaced/updated) rather than accumulating `-v2`/`-v3` copies.
 
 ## Git workflow
 

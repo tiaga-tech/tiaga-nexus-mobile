@@ -13,6 +13,11 @@ enum TIAGATypography {
     /// Screen titles (e.g. "Fleet", "Agents").
     static let screenTitle = Font.system(.title, design: .default, weight: .bold)
 
+    /// The "TIAGA" wordmark itself — Login and any other brand/splash moment.
+    /// Deliberately a step above `screenTitle`: this is the one place the
+    /// product's own name is the content, not a navigation label.
+    static let wordmark = Font.system(.largeTitle, design: .default, weight: .heavy)
+
     /// Card/row titles (a device name, an agent's name).
     static let headline = Font.system(.headline, design: .default, weight: .semibold)
 
