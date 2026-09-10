@@ -198,6 +198,22 @@ from getting the side menu wrong on the first few passes:
   (it responds to motion/interaction, not a still frame) — say so explicitly
   rather than claiming a screenshot confirms it "looks native"; that needs
   the user's own eyes on the running simulator.
+- **Don't conditionally insert/remove Liquid Glass content with `if` +
+  `.transition()` for a custom overlay (a drawer, a modal) — it does not
+  reliably animate on removal**, likely because `GlassEffectContainer`'s own
+  rendering pass tears its content down immediately when removed from the
+  hierarchy instead of participating in the transition like an ordinary view.
+  This cost two rounds of debugging on the side menu: the drawer opened
+  with an animation but closed instantly, because the scrim/drawer were
+  wrapped in `if isSideMenuOpen { ... }`. The fix that actually worked: keep
+  the overlay's content **always present** in the view hierarchy, and drive
+  visibility by directly animating `opacity` and `offset` (core `Animatable`
+  properties SwiftUI handles reliably regardless of what's rendering inside)
+  instead of relying on insertion/removal at all. Pair with
+  `.allowsHitTesting(isOpen)` so the always-present, off-screen/invisible
+  content doesn't intercept touches when "closed". Apply this same pattern
+  to any future custom overlay with glass content (e.g. the Permissions
+  approval overlay, Section 8) — don't rediscover it from scratch.
 
 Never write `Color(red:green:blue:)`, a raw hex, a bare `.font(.system(size:))`,
 or a bare numeric literal in `.padding()` / `.cornerRadius()` inside a View.
