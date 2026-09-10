@@ -13,6 +13,7 @@ architecture rules — this file is the ordered task list, that file is the why.
 - [ ] Every domain model gets a DocC comment: what real-world entity/event it is, and the business rule(s) that govern it.
 - [ ] Every Use Case gets a typed domain error enum whose messages are written for the operator, not a developer — no "something went wrong".
 - [ ] Order below is dependency order (each section only needs what already landed) — do not reorder without checking what a later section assumes exists.
+- [ ] Every PR touching UI includes a manual visual-confirmation checklist in its test plan (one concrete, checkable line per screen/state that needs eyes on a real render) — the user runs these, Claude doesn't.
 
 ---
 

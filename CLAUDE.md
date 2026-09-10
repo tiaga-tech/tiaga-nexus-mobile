@@ -145,6 +145,16 @@ Use Case tests live under `TIAGATests/`. Name tests as domain scenarios:
 Minimum 8 tests across the 3+ Use Cases: happy path, boundary condition, and
 each error case per Use Case.
 
+Automated tests only cover logic — they don't catch a legibility bug like
+white-on-white placeholder text. Every PR's test plan must include a
+**manual visual-confirmation checklist**: one line per thing that needs eyes
+on a real render (new/changed screen, each visually distinct state — loading/
+empty/error, light vs. dark if it ever applies again, text contrast on new
+surfaces, anything a screenshot would actually catch that a unit test can't).
+The user runs these, not Claude — write them as concrete, checkable claims
+("Send button dims to ~30% opacity when the composer is empty"), not "looks
+good".
+
 ## Git workflow
 
 - **Never commit directly to `main`.** Every change — including docs — happens
