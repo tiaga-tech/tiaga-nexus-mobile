@@ -219,8 +219,20 @@ button dims to ~30% opacity when the composer is empty"), not "looks good".
 not just described in prose — save it to `docs/screenshots/<descriptive-name>.png`
 (outside `TIAGA/`, so it's never bundled into the app or shown in Xcode's
 navigator), commit it on the same branch as the change it documents, push,
-then embed it in the PR body/comment as a markdown image using the raw CDN
-URL: `https://raw.githubusercontent.com/tiaga-tech/tiaga-nexus-mobile/<branch>/docs/screenshots/<name>.png`.
+then embed it in the PR body/comment as a markdown image.
+
+**This repo is private — use the `blob`+`?raw=true` URL, not
+`raw.githubusercontent.com`:**
+`https://github.com/tiaga-tech/tiaga-nexus-mobile/blob/<branch>/docs/screenshots/<name>.png?raw=true`.
+`raw.githubusercontent.com` doesn't serve private-repo content without a
+short-lived signed token (confirmed: it 404s even right after pushing — that
+was a private-repo auth issue, not a CDN propagation delay). The `blob`
+form rides the viewer's own github.com session instead, so it works for an
+authenticated viewer with repo access. Neither form can be verified with an
+anonymous `curl` — GitHub masks private-repo resources as 404 either way — so
+after embedding, ask the user to confirm it actually renders for them rather
+than assuming success.
+
 Reuse a name across PRs when it's the same screen (the file just gets
 replaced/updated) rather than accumulating `-v2`/`-v3` copies.
 
