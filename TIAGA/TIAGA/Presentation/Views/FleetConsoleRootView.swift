@@ -21,8 +21,13 @@ struct FleetConsoleRootView: View {
     @State private var dragTranslation: CGFloat = 0
 
     private let sideMenuWidth: CGFloat = 300
-    /// Dragging the drawer left past this fraction of its width closes it.
+    /// Dragging past this fraction of the drawer's width completes the
+    /// open/close gesture instead of snapping back to where it started.
     private let dismissDragFraction: CGFloat = 0.3
+    /// A swipe must start within this many points of the left edge to open
+    /// the drawer — otherwise every rightward swipe anywhere on the main
+    /// content would try to open it.
+    private let edgeSwipeActivationWidth: CGFloat = 24
 
     init(account: Account, authViewModel: AuthViewModel) {
         self.account = account
@@ -41,6 +46,20 @@ struct FleetConsoleRootView: View {
     /// intent — 0 when open, fully off-screen to the left when closed.
     private var restingOffset: CGFloat { isSideMenuOpen ? 0 : -sideMenuWidth }
 
+    /// `restingOffset` plus whatever's in progress from an active drag
+    /// (either direction), clamped so a drag can never overshoot past fully
+    /// open or fully closed.
+    private var drawerOffset: CGFloat {
+        max(-sideMenuWidth, min(0, restingOffset + dragTranslation))
+    }
+
+    /// How open the drawer is right now, 0...1 — driven by `drawerOffset`
+    /// rather than the binary `isSideMenuOpen`, so the scrim dims
+    /// proportionally while dragging instead of jumping at the very end.
+    private var openFraction: Double {
+        Double((drawerOffset + sideMenuWidth) / sideMenuWidth)
+    }
+
     var body: some View {
         ZStack(alignment: .leading) {
             NavigationStack {
@@ -58,6 +77,30 @@ struct FleetConsoleRootView: View {
             }
             .disabled(isSideMenuOpen)
 
+            // An edge-swipe-to-open zone, only while closed — a plain
+            // invisible hit area, not Liquid Glass content, so conditional
+            // insertion here doesn't hit the transition-animation problem
+            // above (nothing about it is ever animated in/out).
+            if !isSideMenuOpen {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .frame(width: edgeSwipeActivationWidth)
+                    .frame(maxHeight: .infinity)
+                    .gesture(
+                        DragGesture()
+                            .onChanged { value in
+                                dragTranslation = max(0, value.translation.width)
+                            }
+                            .onEnded { value in
+                                if value.translation.width > sideMenuWidth * dismissDragFraction {
+                                    openMenu()
+                                } else {
+                                    withAnimation(.easeOut(duration: 0.2)) { dragTranslation = 0 }
+                                }
+                            }
+                    )
+            }
+
             // The scrim and drawer are always in the hierarchy — never
             // conditionally inserted/removed with `if` + `.transition()`.
             // That combination didn't reliably animate on removal (likely
@@ -66,7 +109,7 @@ struct FleetConsoleRootView: View {
             // transition), so visibility is driven by directly animating
             // opacity/offset instead, which SwiftUI handles far more
             // reliably and is the standard approach for a custom drawer.
-            Color.black.opacity(isSideMenuOpen ? 0.35 : 0)
+            Color.black.opacity(0.35 * openFraction)
                 .ignoresSafeArea()
                 .allowsHitTesting(isSideMenuOpen)
                 .onTapGesture { closeMenu() }
@@ -82,7 +125,7 @@ struct FleetConsoleRootView: View {
             )
             .frame(width: sideMenuWidth)
             .frame(maxHeight: .infinity)
-            .offset(x: restingOffset + dragTranslation)
+            .offset(x: drawerOffset)
             .allowsHitTesting(isSideMenuOpen)
             .gesture(
                 DragGesture()
