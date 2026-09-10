@@ -7,8 +7,8 @@ architecture rules — this file is the ordered task list, that file is the why.
 
 - [ ] One feature section = one branch, named `feature/<slug>` as given under each heading.
 - [ ] Never commit directly to `main` — not app code, not docs. Every change lands on its own branch.
-- [ ] Build a section fully (including its tests), then **stop and wait for review/merge to `main`** before starting the next section. Do not start the next branch off an unmerged one.
-- [ ] Never push. All work stays local until the user explicitly says to push.
+- [ ] Build a section fully (including its tests), then push the branch and open a PR for review before starting the next section. Do not start the next branch off an unmerged one.
+- [ ] Never push `main`, and never merge a PR yourself — pushing a feature/docs branch to open a PR is fine; landing it on `main` is the user's call.
 - [ ] Commit messages follow Conventional Commits (`feat:`, `fix:`, `test:`, `docs:`).
 - [ ] Every domain model gets a DocC comment: what real-world entity/event it is, and the business rule(s) that govern it.
 - [ ] Every Use Case gets a typed domain error enum whose messages are written for the operator, not a developer — no "something went wrong".

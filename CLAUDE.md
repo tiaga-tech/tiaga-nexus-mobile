@@ -132,7 +132,10 @@ each error case per Use Case.
   on its own branch (`feature/<slug>` for app features, `docs/<slug>` for
   planning/doc-only changes) and is merged to `main` only after the user has
   reviewed it.
-- **Never push.** All work stays local until the user explicitly says to push.
+- **Never push `main`.** Feature/docs branches may be pushed to open a PR for
+  the user to review once a section's work (including its tests) is complete
+  — that's the review mechanism, not a substitute for it. Never push straight
+  to `main`, and never merge a PR yourself.
 - **Every commit uses Conventional Commits** (`feat:`, `fix:`, `docs:`, `test:`,
   `chore:`, `refactor:`) — no exceptions, including doc-only and scaffolding
   commits.
