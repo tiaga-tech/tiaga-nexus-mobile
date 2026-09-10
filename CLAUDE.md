@@ -192,14 +192,28 @@ Minimum 8 tests across the 3+ Use Cases: happy path, boundary condition, and
 each error case per Use Case.
 
 Automated tests only cover logic — they don't catch a legibility bug like
-white-on-white placeholder text. Every PR's test plan must include a
-**manual visual-confirmation checklist**: one line per thing that needs eyes
-on a real render (new/changed screen, each visually distinct state — loading/
-empty/error, light vs. dark if it ever applies again, text contrast on new
-surfaces, anything a screenshot would actually catch that a unit test can't).
-The user runs these, not Claude — write them as concrete, checkable claims
-("Send button dims to ~30% opacity when the composer is empty"), not "looks
-good".
+white-on-white placeholder text.
+
+**Before opening any PR that touches UI, take a real screenshot and look at
+it** — don't just eyeball the code:
+```
+xcrun simctl boot <udid>                                  # once, if nothing's booted
+xcodebuild -project TIAGA.xcodeproj -scheme TIAGA -sdk iphonesimulator \
+  -destination 'id=<udid>' build
+xcrun simctl install booted <path-to-.app-in-DerivedData>
+xcrun simctl launch booted com.tiaga.TIAGA
+xcrun simctl io booted screenshot <path>.png               # then Read the png
+```
+This catches what a build/test pass can't: contrast, sizing, an element that's
+missing or in the wrong place, a token that renders differently than expected.
+It's a static, launch-state check only — `simctl` can't tap or type, so it
+can't drive a multi-step flow (log in → land on a specific screen → open a
+sheet). For that, and for final polish/interaction feel, the **manual
+visual-confirmation checklist** in the PR's test plan is still required: one
+line per thing that needs a human driving it (each visually distinct state —
+loading/empty/error, a full interactive flow, anything the static screenshot
+pass didn't already cover). Write it as concrete, checkable claims ("Send
+button dims to ~30% opacity when the composer is empty"), not "looks good".
 
 ## Git workflow
 

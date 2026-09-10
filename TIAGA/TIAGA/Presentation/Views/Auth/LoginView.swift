@@ -19,7 +19,7 @@ struct LoginView: View {
             Spacer()
 
             Text("TIAGA")
-                .font(TIAGATypography.screenTitle)
+                .font(TIAGATypography.wordmark)
                 .foregroundStyle(TIAGAColor.textPrimary)
 
             VStack(spacing: TIAGASpacing.md) {

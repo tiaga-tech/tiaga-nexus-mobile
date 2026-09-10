@@ -13,7 +13,7 @@ architecture rules — this file is the ordered task list, that file is the why.
 - [ ] Every domain model gets a DocC comment: what real-world entity/event it is, and the business rule(s) that govern it.
 - [ ] Every Use Case gets a typed domain error enum whose messages are written for the operator, not a developer — no "something went wrong".
 - [ ] Order below is dependency order (each section only needs what already landed) — do not reorder without checking what a later section assumes exists.
-- [ ] Every PR touching UI includes a manual visual-confirmation checklist in its test plan (one concrete, checkable line per screen/state that needs eyes on a real render) — the user runs these, Claude doesn't.
+- [ ] Before opening any PR touching UI: boot a simulator, build, install, launch, and screenshot each new/changed screen (`xcrun simctl io booted screenshot`) and actually look at it — see CLAUDE.md's Testing section for the exact commands. Then still include a manual visual-confirmation checklist in the test plan for whatever that static screenshot pass can't cover (interactive multi-step flows, final polish) — the user runs those, Claude doesn't.
 - [ ] Every repository is fixture-backed (`Fake*Repository`) — **the app never talks to the real TIAGA backend.** TIAGA can dispatch real agents onto real machines; a `Remote*Repository` wired into the running app would mean casual manual testing sends real chat messages, real approvals, and real kills against a real account. See CLAUDE.md's testing-safety policy before building any repository implementation.
 
 ---
