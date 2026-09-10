@@ -17,7 +17,12 @@ struct ChatComposerBar: View {
 
     var body: some View {
         HStack(alignment: .bottom, spacing: TIAGASpacing.sm) {
-            TextField("Message TIAGA…", text: $text, axis: .vertical)
+            TextField(
+                "",
+                text: $text,
+                prompt: Text("Message TIAGA…").foregroundStyle(TIAGAColor.textTertiary),
+                axis: .vertical
+            )
                 .font(TIAGATypography.body)
                 .foregroundStyle(TIAGAColor.textPrimary)
                 .padding(.horizontal, TIAGASpacing.sm)
