@@ -120,6 +120,22 @@ What this means in practice:
   `https://tiaga.tech`. Don't wire one in without being explicitly asked to.
 - Unit tests already follow this by construction: every Use Case test runs
   against a `Fake*Repository`, never a live network call.
+- **"Fixture-backed" means plain Swift values held in memory** — an array of
+  `Device`/`Agent`/`ChatMessage` literals inside the fake's init, nothing
+  else. No SQLite, no local database, no JSON fixture files on disk. A
+  chatbot reply from `FakeOrchestratorConversationRepository` is a hardcoded
+  `ChatMessage` value in that file, not fetched or generated from anything.
+- Two flavors of fake, both fine, pick whichever makes a given test/screen
+  clearest:
+  - The `Data/Repositories/Fake*Repository.swift` used by the **running
+    app** (what you see when manually exploring the simulator) carries
+    richer demo data — several devices, agents spanning every state — so
+    there's something to actually look at.
+  - A **Use Case unit test** often wants a smaller, purpose-built fake
+    constructed right in the test file instead (see `MockURLDataSession` in
+    `APIClientTests.swift` for the pattern) — just the one device/agent in
+    exactly the state that scenario needs, so the test is precise and easy
+    to read. Same protocol, deliberately thinner data.
 
 ## Design system — no hardcoded design values, ever
 
