@@ -16,28 +16,29 @@ architecture rules — this file is the ordered task list, that file is the why.
 
 ---
 
-## 1. Design System — `feature/design-system`
+## 1. Design System — `feature/design-system` ✅
 
-Foundation every later screen consumes. Extends what already exists
-(`TIAGAColor`, `TIAGASpacing`, `TIAGARadius`, `TIAGATypography`, the
-`Colors.xcassets` set, `AgentState`, `PermissionRequestUrgency`).
+Foundation every later screen consumes. Built from scratch on the bare
+project scaffold: `TIAGAColor`, `TIAGASpacing`, `TIAGARadius`, `TIAGATypography`,
+the `Colors.xcassets` set, and the `AgentState`/`PermissionRequestUrgency`
+domain models the color mappings need.
 
-- [ ] `TIAGAIcon` — SF Symbol tokens for: device types (macOS/Windows/Linux),
+- [x] `TIAGAIcon` — SF Symbol tokens for: device types (macOS/Windows/Linux),
       agent state, tool-usage kinds, side menu entries (chat/devices/settings).
-- [ ] `TIAGAColor.forContextUsage(percentage:)` — green → amber → red, amber at
+- [x] `TIAGAColor.forContextUsage(percentage:)` — green → amber → red, amber at
       75% (mirrors the real product's compaction threshold), red at 100%.
       This is the color source for the Chat context bar.
-- [ ] Reusable component primitives (`Presentation/Components/`):
-  - [ ] `TIAGACard` — surface container (background, radius, padding from tokens)
-  - [ ] `StatusPill` — label + dot, color driven by an `AgentState` or presence bool, never a raw color
-  - [ ] `MessageBubble` — user / orchestrator-or-agent / tool-usage row styles
-  - [ ] `ContextUsageBar` — horizontal bar bound to a 0–1 fraction, colored via `forContextUsage`
-  - [ ] `ChatComposerBar` — the shared text-input-and-send control used by both Chat and Agent Chat (no mic button — voice is explicitly out of scope)
-- [ ] Unit tests (`TIAGATests/DesignSystemTests.swift`):
-  - [ ] `test_forContextUsage_returnsSuccessColor_belowSeventyFivePercent`
-  - [ ] `test_forContextUsage_returnsWarningColor_atSeventyFivePercentBoundary`
-  - [ ] `test_forContextUsage_returnsDangerColor_atOneHundredPercent`
-  - [ ] `test_forAgentState_mapsCompactingToCompactingColor` (extend existing mapping tests if not already covered)
+- [x] Reusable component primitives (`Presentation/Components/`):
+  - [x] `TIAGACard` — surface container (background, radius, padding from tokens)
+  - [x] `StatusPill` — label + dot, color driven by an `AgentState` or presence bool, never a raw color
+  - [x] `MessageBubble` — user / orchestrator-or-agent / tool-usage row styles
+  - [x] `ContextUsageBar` — horizontal bar bound to a 0–1 fraction, colored via `forContextUsage`
+  - [x] `ChatComposerBar` — the shared text-input-and-send control used by both Chat and Agent Chat (no mic button — voice is explicitly out of scope)
+- [x] Unit tests (`TIAGATests/DesignSystemTests.swift`):
+  - [x] `test_forContextUsage_returnsSuccessColor_belowSeventyFivePercent`
+  - [x] `test_forContextUsage_returnsWarningColor_atSeventyFivePercentBoundary`
+  - [x] `test_forContextUsage_returnsDangerColor_atOneHundredPercent`
+  - [x] `test_forAgentState_mapsCompactingToCompactingColor` (extend existing mapping tests if not already covered)
 
 ---
 
