@@ -215,6 +215,15 @@ loading/empty/error, a full interactive flow, anything the static screenshot
 pass didn't already cover). Write it as concrete, checkable claims ("Send
 button dims to ~30% opacity when the composer is empty"), not "looks good".
 
+**Every screenshot taken this way gets committed and embedded in the PR**,
+not just described in prose — save it to `docs/screenshots/<descriptive-name>.png`
+(outside `TIAGA/`, so it's never bundled into the app or shown in Xcode's
+navigator), commit it on the same branch as the change it documents, push,
+then embed it in the PR body/comment as a markdown image using the raw CDN
+URL: `https://raw.githubusercontent.com/tiaga-tech/tiaga-nexus-mobile/<branch>/docs/screenshots/<name>.png`.
+Reuse a name across PRs when it's the same screen (the file just gets
+replaced/updated) rather than accumulating `-v2`/`-v3` copies.
+
 ## Git workflow
 
 - **Never commit directly to `main`.** Every change — including docs — happens
