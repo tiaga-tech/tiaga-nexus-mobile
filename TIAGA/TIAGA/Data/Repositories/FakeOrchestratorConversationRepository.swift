@@ -77,7 +77,8 @@ final class FakeOrchestratorConversationRepository: OrchestratorConversationRepo
                 code: nil,
                 language: nil,
                 columns: nil,
-                rows: nil
+                rows: nil,
+                diagram: nil
             ),
             DynamicUICard(
                 id: "ui-2",
@@ -87,7 +88,8 @@ final class FakeOrchestratorConversationRepository: OrchestratorConversationRepo
                 code: "xcodebuild -project TIAGA.xcodeproj -scheme TIAGA build",
                 language: "bash",
                 columns: nil,
-                rows: nil
+                rows: nil,
+                diagram: nil
             ),
             DynamicUICard(
                 id: "ui-3",
@@ -100,17 +102,19 @@ final class FakeOrchestratorConversationRepository: OrchestratorConversationRepo
                 rows: [
                     ["Home PC", "Atlas", "Online"],
                     ["Work Laptop", "Comet", "Compacting"],
-                ]
+                ],
+                diagram: nil
             ),
             DynamicUICard(
                 id: "ui-4",
-                title: "Usage limit reached",
-                kind: .error,
-                text: "TIAGA is temporarily out of usage for this session. In-flight work finished, but new turns can't start until usage is restored.",
+                title: "Agent lifecycle",
+                kind: .diagram,
+                text: nil,
                 code: nil,
                 language: nil,
                 columns: nil,
-                rows: nil
+                rows: nil,
+                diagram: "graph TD; A[Idle]-->B[Running]; B-->C[Compacting]; C-->B;"
             ),
         ]
         self.contextUsageFraction = 0.42

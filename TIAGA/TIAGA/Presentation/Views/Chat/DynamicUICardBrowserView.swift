@@ -111,19 +111,21 @@ private struct CardRow: View {
                         TableView(columns: columns, rows: card.rows ?? [])
                     }
 
-                case .error:
-                    HStack(alignment: .top, spacing: TIAGASpacing.xs) {
-                        Image(systemName: TIAGAIcon.agentError)
-                            .font(TIAGATypography.caption)
-                        if let text = card.text {
-                            Text(text)
-                                .font(TIAGATypography.body)
-                        }
+                case .diagram:
+                    // The real web client renders Mermaid diagrams natively via
+                    // its `DiagramBlock` component. This mobile browser does not
+                    // ship a Mermaid/WebKit rendering path, so it shows the
+                    // diagram source in a labelled monospaced block instead.
+                    if let diagram = card.diagram {
+                        Text(diagram)
+                            .font(TIAGATypography.command)
+                            .foregroundStyle(TIAGAColor.textPrimary)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(TIAGASpacing.sm)
+                            .background(TIAGAColor.surface)
+                            .clipShape(RoundedRectangle(cornerRadius: TIAGARadius.sm, style: .continuous))
                     }
-                    .foregroundStyle(TIAGAColor.statusDanger)
-                    .padding(TIAGASpacing.sm)
-                    .background(TIAGAColor.statusDanger.opacity(0.15))
-                    .clipShape(RoundedRectangle(cornerRadius: TIAGARadius.sm, style: .continuous))
                 }
             }
         }
@@ -172,7 +174,8 @@ private struct TableView: View {
         code: nil,
         language: nil,
         columns: nil,
-        rows: nil
+        rows: nil,
+        diagram: nil
     ), onClose: {})
     .padding()
     .background(TIAGAColor.background)

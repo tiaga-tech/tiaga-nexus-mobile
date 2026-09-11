@@ -7,16 +7,15 @@ import Foundation
 
 /// The kind of AI-composed card the orchestrator put on screen.
 ///
-/// Matches the real `DynamicUiManager` tools: `add_dynamic_ui` produces
-/// `.text`, `add_code_ui` produces `.code`, `add_table_ui` produces `.table`,
-/// and a user-visible error line (e.g. the usage-stop message) renders as
-/// `.error`. Diagram cards are intentionally not modeled here — Section 5 is
-/// text-only and the mobile browser does not render Mermaid.
+/// Matches the real `DynamicUiManager` tool surface exactly: `add_dynamic_ui`
+/// produces `.text`, `add_code_ui` produces `.code`, `add_table_ui` produces
+/// `.table`, and `add_diagram_ui` produces `.diagram`. There is no `.error`
+/// card kind in the backend.
 enum DynamicUICardKind: String, Equatable, CaseIterable, Sendable {
     case text
     case code
     case table
-    case error
+    case diagram
 }
 
 /// One AI-composed visual card from the orchestrator.
@@ -35,4 +34,5 @@ struct DynamicUICard: Identifiable, Equatable, Sendable {
     let language: String?
     let columns: [String]?
     let rows: [[String]]?
+    let diagram: String?
 }
