@@ -24,10 +24,6 @@ struct FleetConsoleRootView: View {
     /// Dragging past this fraction of the drawer's width completes the
     /// open/close gesture instead of snapping back to where it started.
     private let dismissDragFraction: CGFloat = 0.3
-    /// A swipe must start within this many points of the left edge to open
-    /// the drawer — otherwise every rightward swipe anywhere on the main
-    /// content would try to open it.
-    private let edgeSwipeActivationWidth: CGFloat = 24
 
     init(account: Account, authViewModel: AuthViewModel) {
         self.account = account
@@ -76,30 +72,35 @@ struct FleetConsoleRootView: View {
                     }
             }
             .disabled(isSideMenuOpen)
-
-            // An edge-swipe-to-open zone, only while closed — a plain
-            // invisible hit area, not Liquid Glass content, so conditional
-            // insertion here doesn't hit the transition-animation problem
-            // above (nothing about it is ever animated in/out).
-            if !isSideMenuOpen {
-                Color.clear
-                    .contentShape(Rectangle())
-                    .frame(width: edgeSwipeActivationWidth)
-                    .frame(maxHeight: .infinity)
-                    .gesture(
-                        DragGesture()
-                            .onChanged { value in
-                                dragTranslation = max(0, value.translation.width)
-                            }
-                            .onEnded { value in
-                                if value.translation.width > sideMenuWidth * dismissDragFraction {
-                                    openMenu()
-                                } else {
-                                    withAnimation(.easeOut(duration: 0.2)) { dragTranslation = 0 }
-                                }
-                            }
-                    )
-            }
+            // Swipe-to-open from anywhere on the content, not just an edge
+            // strip. `.simultaneousGesture` (not `.gesture`) is essential
+            // here — a plain `.gesture` on a view this large would claim
+            // every touch exclusively and block taps on the hamburger
+            // button and any future interactive content underneath it;
+            // `.simultaneousGesture` lets this recognize alongside normal
+            // taps instead of competing with them. The horizontal-dominant
+            // check additionally keeps it from ever hijacking a future
+            // vertical scroll (e.g. Chat's message list) — it only tracks
+            // once a drag is clearly more sideways than up/down.
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 12)
+                    .onChanged { value in
+                        guard !isSideMenuOpen,
+                              abs(value.translation.width) > abs(value.translation.height)
+                        else { return }
+                        dragTranslation = max(0, value.translation.width)
+                    }
+                    .onEnded { value in
+                        guard !isSideMenuOpen,
+                              abs(value.translation.width) > abs(value.translation.height)
+                        else { return }
+                        if value.translation.width > sideMenuWidth * dismissDragFraction {
+                            openMenu()
+                        } else {
+                            withAnimation(.easeOut(duration: 0.2)) { dragTranslation = 0 }
+                        }
+                    }
+            )
 
             // The scrim and drawer are always in the hierarchy — never
             // conditionally inserted/removed with `if` + `.transition()`.
@@ -113,6 +114,26 @@ struct FleetConsoleRootView: View {
                 .ignoresSafeArea()
                 .allowsHitTesting(isSideMenuOpen)
                 .onTapGesture { closeMenu() }
+                // The drawer's close DragGesture lives on `SideMenuView`, so
+                // it never sees touches that begin outside the panel. The
+                // scrim covers that area, so mirror the same leftward
+                // drag-to-close here. `simultaneousGesture` keeps the tap
+                // gesture above recognized alongside the drag.
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 12)
+                        .onChanged { value in
+                            guard isSideMenuOpen else { return }
+                            dragTranslation = min(0, value.translation.width)
+                        }
+                        .onEnded { value in
+                            guard isSideMenuOpen else { return }
+                            if value.translation.width < -sideMenuWidth * dismissDragFraction {
+                                closeMenu()
+                            } else {
+                                withAnimation(.easeOut(duration: 0.2)) { dragTranslation = 0 }
+                            }
+                        }
+                )
 
             SideMenuView(
                 viewModel: sideMenuViewModel,
@@ -167,8 +188,17 @@ struct FleetConsoleRootView: View {
     }
 
     private func openMenu() {
-        dragTranslation = 0
-        withAnimation(.easeInOut(duration: 0.25)) { isSideMenuOpen = true }
+        // Same class of bug already fixed in closeMenu(): resetting
+        // dragTranslation *outside* the animated block means it applies
+        // instantly, snapping the drawer back to fully closed before the
+        // open animation even starts — instead of continuing smoothly from
+        // wherever the finger released. Both must change in the same
+        // transaction so SwiftUI interpolates from the drawer's actual
+        // current position, not from closed.
+        withAnimation(.easeInOut(duration: 0.25)) {
+            isSideMenuOpen = true
+            dragTranslation = 0
+        }
     }
 
     private func closeMenu() {
