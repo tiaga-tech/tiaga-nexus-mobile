@@ -73,6 +73,16 @@ final class ChatViewModel: ObservableObject {
         }
     }
 
+    /// Removes one dynamic UI card from the operator's current history. A
+    /// close action is local UI state — the fake repository deliberately has
+    /// no persistence for individual card removal, mirroring the browser's
+    /// dismiss-without-backend-round-trip behaviour.
+    func dismissDynamicCard(id: String) {
+        withAnimation(.easeOut(duration: 0.2)) {
+            dynamicCardHistory.removeAll { $0.id == id }
+        }
+    }
+
     #if DEBUG
     /// Reads `TIAGA_DEBUG_CHAT_SEED` (pass via
     /// `SIMCTL_CHILD_TIAGA_DEBUG_CHAT_SEED` to `xcrun simctl launch`) so a

@@ -20,15 +20,20 @@ struct DynamicUICardBrowserView: View {
                         Text(message)
                             .font(TIAGATypography.subheadline)
                             .foregroundStyle(TIAGAColor.statusDanger)
+                            .frame(maxWidth: .infinity)
                             .padding(TIAGASpacing.lg)
                     } else if viewModel.dynamicCardHistory.isEmpty {
                         Text("No dynamic UI cards yet.")
                             .font(TIAGATypography.subheadline)
                             .foregroundStyle(TIAGAColor.textTertiary)
+                            .frame(maxWidth: .infinity)
                             .padding(TIAGASpacing.lg)
                     } else {
                         ForEach(viewModel.dynamicCardHistory) { card in
-                            CardRow(card: card)
+                            CardRow(
+                                card: card,
+                                onClose: { viewModel.dismissDynamicCard(id: card.id) }
+                            )
                         }
                     }
                 }
@@ -54,13 +59,25 @@ struct DynamicUICardBrowserView: View {
 
 private struct CardRow: View {
     let card: DynamicUICard
+    let onClose: () -> Void
 
     var body: some View {
         TIAGACard {
             VStack(alignment: .leading, spacing: TIAGASpacing.md) {
-                Text(card.title)
-                    .font(TIAGATypography.headline)
-                    .foregroundStyle(TIAGAColor.textPrimary)
+                HStack {
+                    Text(card.title)
+                        .font(TIAGATypography.headline)
+                        .foregroundStyle(TIAGAColor.textPrimary)
+                    Spacer(minLength: TIAGASpacing.sm)
+                    Button(action: onClose) {
+                        Image(systemName: TIAGAIcon.close)
+                            .foregroundStyle(TIAGAColor.textSecondary)
+                            .frame(width: 36, height: 36)
+                    }
+                    .buttonStyle(.glass)
+                    .buttonBorderShape(.circle)
+                    .accessibilityLabel("Close card")
+                }
 
                 switch card.kind {
                 case .text:
@@ -135,4 +152,19 @@ private struct TableView: View {
 
 #Preview {
     DynamicUICardBrowserView(viewModel: ChatViewModel())
+}
+
+#Preview {
+    CardRow(card: DynamicUICard(
+        id: "ui-1",
+        title: "Preview card",
+        kind: .text,
+        text: "Close this card.",
+        code: nil,
+        language: nil,
+        columns: nil,
+        rows: nil
+    ), onClose: {})
+    .padding()
+    .background(TIAGAColor.background)
 }

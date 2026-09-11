@@ -11,6 +11,19 @@ import SwiftUI
 struct ChatView: View {
     @StateObject private var viewModel = ChatViewModel()
     @State private var showsDynamicUICardBrowser = false
+    @State private var showsResetConfirmation = false
+
+    init() {
+        #if DEBUG
+        // Screenshot/QA tooling only. `simctl` cannot tap/type, so these
+        // overrides let a screenshot pass present the card browser or the
+        // reset confirmation directly via SIMCTL_CHILD_ variables. Never
+        // present in a Release build.
+        let environment = ProcessInfo.processInfo.environment
+        _showsDynamicUICardBrowser = State(initialValue: environment["TIAGA_DEBUG_SHOW_DYNAMIC_UI"] == "1")
+        _showsResetConfirmation = State(initialValue: environment["TIAGA_DEBUG_SHOW_RESET_CONFIRMATION"] == "1")
+        #endif
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -22,6 +35,7 @@ struct ChatView: View {
                         Text("Start a conversation with TIAGA.")
                             .font(TIAGATypography.subheadline)
                             .foregroundStyle(TIAGAColor.textTertiary)
+                            .frame(maxWidth: .infinity)
                             .padding(.top, TIAGASpacing.xl)
                     } else {
                         ForEach(viewModel.transcript) { entry in
@@ -77,6 +91,18 @@ struct ChatView: View {
         .sheet(isPresented: $showsDynamicUICardBrowser) {
             DynamicUICardBrowserView(viewModel: viewModel)
         }
+        .confirmationDialog(
+            "Reset conversation?",
+            isPresented: $showsResetConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Reset", role: .destructive) {
+                Task { await viewModel.reset() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This clears the current orchestrator conversation. This can't be undone.")
+        }
     }
 
     private var header: some View {
@@ -107,7 +133,7 @@ struct ChatView: View {
                 .accessibilityLabel("Browse dynamic UI cards")
 
                 Button {
-                    Task { await viewModel.reset() }
+                    showsResetConfirmation = true
                 } label: {
                     Image(systemName: TIAGAIcon.reset)
                         .foregroundStyle(TIAGAColor.textPrimary)
