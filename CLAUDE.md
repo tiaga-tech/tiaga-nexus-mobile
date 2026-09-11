@@ -172,6 +172,49 @@ picking a value.
   chips/badges that aren't blurred in the real product either (status pills,
   meter tracks).
 
+**Interactive controls use native Liquid Glass (iOS 26 SDK), not a hand-rolled
+approximation** — `.buttonStyle(.glass)` / `.buttonStyle(.glassProminent)` for
+buttons, `.glassEffect(in:)` for a standalone glass shape, `GlassEffectContainer`
+to let nearby glass elements blend/merge correctly with each other. Lessons
+from getting the side menu wrong on the first few passes:
+- Liquid Glass is a material for **floating controls**, not backgrounds.
+  `.glassEffect()` on a whole panel merges every button's own glass into one
+  flat surface (only real system chrome — a toolbar — will look "native" by
+  comparison). Give the panel itself a plain/solid background and reserve
+  `.glassEffect()`/`.buttonStyle(.glass)` for the actual controls sitting on it.
+- A small icon-only glass button (a close "X") needs an explicit fixed frame
+  (e.g. `.frame(width: 36, height: 36)`) and `.buttonBorderShape(.circle)` to
+  render as a proper circle with the same shimmer quality as other glass
+  controls — without it, it's sized to just the glyph and looks flat.
+- `.tint()` alone does not visually distinguish a "selected" glass button —
+  `.buttonStyle(.glass)` stays visually neutral regardless of tint. Use
+  `.buttonStyle(.glassProminent)` (+ `.tint()`) for the selected/active state
+  and plain `.buttonStyle(.glass)` for the rest, branched with an `if` inside
+  the view (both arms return `some View` under the implicit `@ViewBuilder`).
+- A custom `Button` label needs `.frame(maxWidth: .infinity, alignment: .leading)`
+  **and** `.contentShape(_:)` or only the glyphs (text/icon) are tappable —
+  the whitespace in the row is not part of the hit area by default.
+- A static screenshot cannot verify Liquid Glass's dynamic specular highlight
+  (it responds to motion/interaction, not a still frame) — say so explicitly
+  rather than claiming a screenshot confirms it "looks native"; that needs
+  the user's own eyes on the running simulator.
+- **Don't conditionally insert/remove Liquid Glass content with `if` +
+  `.transition()` for a custom overlay (a drawer, a modal) — it does not
+  reliably animate on removal**, likely because `GlassEffectContainer`'s own
+  rendering pass tears its content down immediately when removed from the
+  hierarchy instead of participating in the transition like an ordinary view.
+  This cost two rounds of debugging on the side menu: the drawer opened
+  with an animation but closed instantly, because the scrim/drawer were
+  wrapped in `if isSideMenuOpen { ... }`. The fix that actually worked: keep
+  the overlay's content **always present** in the view hierarchy, and drive
+  visibility by directly animating `opacity` and `offset` (core `Animatable`
+  properties SwiftUI handles reliably regardless of what's rendering inside)
+  instead of relying on insertion/removal at all. Pair with
+  `.allowsHitTesting(isOpen)` so the always-present, off-screen/invisible
+  content doesn't intercept touches when "closed". Apply this same pattern
+  to any future custom overlay with glass content (e.g. the Permissions
+  approval overlay, Section 8) — don't rediscover it from scratch.
+
 Never write `Color(red:green:blue:)`, a raw hex, a bare `.font(.system(size:))`,
 or a bare numeric literal in `.padding()` / `.cornerRadius()` inside a View.
 If a token you need doesn't exist yet, add it to the relevant `DesignSystem`
