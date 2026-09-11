@@ -41,6 +41,8 @@ enum TIAGAIcon {
 
     static let sideMenuToggle = "line.3.horizontal"
     static let close = "xmark"
+    static let reset = "arrow.counterclockwise"
+    static let dynamicUIBrowser = "rectangle.grid.2x2"
 }
 
 // MARK: - Domain state → icon mapping
