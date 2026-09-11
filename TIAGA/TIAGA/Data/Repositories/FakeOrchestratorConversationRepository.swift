@@ -102,6 +102,16 @@ final class FakeOrchestratorConversationRepository: OrchestratorConversationRepo
                     ["Work Laptop", "Comet", "Compacting"],
                 ]
             ),
+            DynamicUICard(
+                id: "ui-4",
+                title: "Usage limit reached",
+                kind: .error,
+                text: "TIAGA is temporarily out of usage for this session. In-flight work finished, but new turns can't start until usage is restored.",
+                code: nil,
+                language: nil,
+                columns: nil,
+                rows: nil
+            ),
         ]
         self.contextUsageFraction = 0.42
     }

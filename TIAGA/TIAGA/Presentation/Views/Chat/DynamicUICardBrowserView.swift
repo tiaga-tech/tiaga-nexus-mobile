@@ -88,16 +88,22 @@ private struct CardRow: View {
                     }
 
                 case .code:
-                    if let language = card.language {
-                        Text(language)
-                            .font(TIAGATypography.caption)
-                            .foregroundStyle(TIAGAColor.statusInfo)
-                    }
-                    if let code = card.code {
-                        Text(code)
-                            .font(TIAGATypography.command)
-                            .foregroundStyle(TIAGAColor.textPrimary)
-                            .textSelection(.enabled)
+                    VStack(alignment: .leading, spacing: TIAGASpacing.xs) {
+                        if let language = card.language {
+                            Text(language)
+                                .font(TIAGATypography.caption)
+                                .foregroundStyle(TIAGAColor.statusInfo)
+                        }
+                        if let code = card.code {
+                            Text(code)
+                                .font(TIAGATypography.command)
+                                .foregroundStyle(TIAGAColor.textPrimary)
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(TIAGASpacing.sm)
+                                .background(TIAGAColor.surface)
+                                .clipShape(RoundedRectangle(cornerRadius: TIAGARadius.sm, style: .continuous))
+                        }
                     }
 
                 case .table:
@@ -106,7 +112,7 @@ private struct CardRow: View {
                     }
 
                 case .error:
-                    HStack(spacing: TIAGASpacing.xs) {
+                    HStack(alignment: .top, spacing: TIAGASpacing.xs) {
                         Image(systemName: TIAGAIcon.agentError)
                             .font(TIAGATypography.caption)
                         if let text = card.text {
@@ -115,6 +121,9 @@ private struct CardRow: View {
                         }
                     }
                     .foregroundStyle(TIAGAColor.statusDanger)
+                    .padding(TIAGASpacing.sm)
+                    .background(TIAGAColor.statusDanger.opacity(0.15))
+                    .clipShape(RoundedRectangle(cornerRadius: TIAGARadius.sm, style: .continuous))
                 }
             }
         }
