@@ -95,14 +95,12 @@ private struct CardRow: View {
                                 .foregroundStyle(TIAGAColor.statusInfo)
                         }
                         if let code = card.code {
-                            Text(code)
-                                .font(TIAGATypography.command)
-                                .foregroundStyle(TIAGAColor.textPrimary)
-                                .textSelection(.enabled)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(TIAGASpacing.sm)
-                                .background(TIAGAColor.surface)
-                                .clipShape(RoundedRectangle(cornerRadius: TIAGARadius.sm, style: .continuous))
+                            HighlightedCodeView(
+                                code: code,
+                                language: card.language ?? "plaintext"
+                            )
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .clipShape(RoundedRectangle(cornerRadius: TIAGARadius.sm, style: .continuous))
                         }
                     }
 
@@ -112,17 +110,9 @@ private struct CardRow: View {
                     }
 
                 case .diagram:
-                    // The real web client renders Mermaid diagrams natively via
-                    // its `DiagramBlock` component. This mobile browser does not
-                    // ship a Mermaid/WebKit rendering path, so it shows the
-                    // diagram source in a labelled monospaced block instead.
                     if let diagram = card.diagram {
-                        Text(diagram)
-                            .font(TIAGATypography.command)
-                            .foregroundStyle(TIAGAColor.textPrimary)
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(TIAGASpacing.sm)
+                        MermaidDiagramView(source: diagram)
+                            .frame(maxWidth: .infinity)
                             .background(TIAGAColor.surface)
                             .clipShape(RoundedRectangle(cornerRadius: TIAGARadius.sm, style: .continuous))
                     }
@@ -137,26 +127,51 @@ private struct TableView: View {
     let rows: [[String]]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: TIAGASpacing.xs) {
-            HStack {
-                ForEach(columns, id: \.self) { column in
-                    Text(column)
-                        .font(TIAGATypography.caption)
-                        .foregroundStyle(TIAGAColor.textSecondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-
-            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                HStack {
-                    ForEach(Array(row.enumerated()), id: \.offset) { _, cell in
-                        Text(cell)
+        ScrollView(.horizontal, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 0) {
+                // Header row — visually distinct from the body via a flat
+                // elevated fill and secondary text.
+                HStack(spacing: 0) {
+                    ForEach(columns, id: \.self) { column in
+                        Text(column)
                             .font(TIAGATypography.caption)
-                            .foregroundStyle(TIAGAColor.textPrimary)
+                            .foregroundStyle(TIAGAColor.textSecondary)
                             .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, TIAGASpacing.sm)
+                            .padding(.vertical, TIAGASpacing.xs)
+                    }
+                }
+                .background(TIAGAColor.surfaceElevated)
+                .clipShape(
+                    UnevenRoundedRectangle(
+                        topLeadingRadius: TIAGARadius.sm,
+                        bottomLeadingRadius: 0,
+                        bottomTrailingRadius: 0,
+                        topTrailingRadius: TIAGARadius.sm,
+                        style: .continuous
+                    )
+                )
+
+                ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
+                    HStack(spacing: 0) {
+                        ForEach(Array(row.enumerated()), id: \.offset) { _, cell in
+                            Text(cell)
+                                .font(TIAGATypography.caption)
+                                .foregroundStyle(TIAGAColor.textPrimary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, TIAGASpacing.sm)
+                                .padding(.vertical, TIAGASpacing.xs)
+                        }
+                    }
+                    if index < rows.count - 1 {
+                        Divider()
+                            .overlay(TIAGAColor.border)
                     }
                 }
             }
+            .background(TIAGAColor.surface)
+            .clipShape(RoundedRectangle(cornerRadius: TIAGARadius.sm, style: .continuous))
+            .frame(minWidth: 0)
         }
     }
 }
