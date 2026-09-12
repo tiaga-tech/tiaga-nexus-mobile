@@ -82,7 +82,7 @@ private struct DeviceRow: View {
                     get: { device.permissionsRequired },
                     set: { _ in onTogglePermissions() }
                 )) {
-                    Text("Permissions enabled")
+                    Text("Enable Permissions")
                         .font(TIAGATypography.subheadline)
                         .foregroundStyle(TIAGAColor.textSecondary)
                 }
