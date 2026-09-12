@@ -30,7 +30,7 @@ final class ChatViewModel: ObservableObject {
 
     init(repository: OrchestratorConversationRepository = FakeOrchestratorConversationRepository()) {
         self.repository = repository
-        self.sendUseCase = SendChatMessageUseCase(repository: repository)
+        self.sendUseCase = SendChatMessageUseCase(orchestratorRepository: repository)
         self.resetUseCase = ResetConversationUseCase(repository: repository)
         self.loadDynamicUICardHistoryUseCase = LoadDynamicUICardHistoryUseCase(repository: repository)
         startObserving()
