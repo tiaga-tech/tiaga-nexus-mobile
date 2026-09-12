@@ -567,58 +567,85 @@ container from Section 4 (this branch adds the overlay to it).
 
 ---
 
-## 9. Settings — `feature/settings`
+## 9. Settings — `feature/settings` ✅
 
-- [ ] `Domain/Models/UsageSummary.swift` — session (5-hour rolling window) and
-      weekly percentage-of-plan usage, resolved against `web/src/components/UsagePanel.tsx`:
-      admin accounts see actual dollar cost instead of a percentage (no plan
-      limits to meter against) — model that as a variant, not a special case
-      bolted onto the percentage path. **Note:** this is a *different* usage
-      metric from the Chat context bar (Section 5) — account/billing usage
-      colors at 60%/85% (`UsagePanel.tsx`'s `Meter`), context-window usage
-      colors at 75%/100% (`TIAGAColor.forContextUsage`). Don't reuse one
-      threshold function for the other.
-- [ ] `Domain/Models/SubscriptionPlan.swift` — plan name/tier, renewal date.
-      **Note found while building Section 3:** the invite code an operator
-      redeems on the Waitlist Gate and a billing top-up/upgrade code are the
-      *same* backend system (`RedemptionCodes`, `/api/redeem` — each code
-      carries a `Tier` + `DurationDays`; redeeming always grants that plan).
-      There's also an admin-direct-grant path with no code at all
-      (`BillingService.GrantAsync`, from reviewing a beta application) — the
-      app doesn't need to model that; it just shows up as the account already
-      being `.active` on next login. If a future top-up/upgrade flow gets
-      built here, reuse the invite-code redemption plumbing from Section 3
-      rather than inventing a parallel one — same code type, same endpoint.
-- [ ] `Domain/Models/PrivacyPreference.swift` — resolved against
-      `web/src/components/PrivacyPanel.tsx`: the (only) privacy switch is
-      "Use my conversations to improve AI" — an opt-out of TIAGA's AI partners
-      using conversations for model training. Turning it off can burn through
-      usage allowance faster (the real UI shows this exact warning inline —
-      carry it over verbatim in the human-facing copy, it's a real product
-      constraint, not filler text).
-- [ ] `Domain/Repositories/AccountRepository.swift` (protocol) +
+**Revision (checked `UsagePanel.tsx`/`PrivacyPanel.tsx`/`BillingPanel.tsx`/
+`ContextBar.tsx`/`api.ts` directly before building):** several premises in
+the original plan above were wrong or incomplete:
+
+- **`UsageSummary` has three mutually exclusive states, not two.** The real
+  backend's `/api/billing` (`BillingInfo`) resolves to admin (dollar cost),
+  subscribed (percentage meters), **or an unmodeled third state: no active
+  plan at all** — the original plan only covered the first two. Modeled as
+  `UsageSummary.admin`/`.subscription`/`.noActivePlan`.
+- **Admin usage is four dollar figures, not "session and weekly."** The real
+  `adminUsage` also includes past-30-days and all-time totals.
+- **Subscription usage also carries reset timestamps and an extra-credits
+  dollar balance** (`sessionResetsAt`/`weeklyResetsAt`/`extraCreditsUsd`),
+  none of which were in the original plan.
+- **The 60%/85% "don't reuse one threshold function for the other" note was
+  wrong** — checked `ContextBar.tsx` directly: it uses the exact same 60/85
+  thresholds as `UsagePanel.tsx`'s `Meter`, not 75%/100%. `UsageMeterView`
+  reuses `TIAGAColor.forContextUsage` (normalized to a 0...1 fraction from
+  the wire's 0...100 percentage) instead of a second, divergent color rule.
+- **A plan's renewal status is a 4-way precedence, not just "renewal
+  date."** `BillingPanel.tsx`: a pending downgrade beats queued time beats
+  auto-renew beats plain ending. Modeled as `ActivePlan.RenewalStatus`
+  (`.switchingTo`/`.queued`/`.renewing`/`.ending`); the exact display copy
+  per case lives in `SettingsView.planStatusText(_:)`, matching
+  `BillingPanel.tsx`'s status-line strings verbatim (date formatting itself
+  uses native `Date.FormatStyle`, not a JS-identical reimplementation).
+- **The privacy wire field is inverted**: `api.ts`'s `fetchPrivacy`/
+  `setPrivacy` use `trainingOptOut`, the opposite of the "Use my
+  conversations to improve AI" toggle shown. `PrivacyPreference` models the
+  UI-facing `improveAIEnabled`, with a note for the eventual
+  `RemotePrivacyRepository` about the inversion.
+- **Devices and Integrations (MCP) tabs from the web's Settings modal don't
+  need mobile equivalents** — Devices already has its own root-level screen
+  (Section 7), and MCP has no domain concept in this app (Section 8's
+  finding, unchanged). Usage/Billing/Privacy/Log out is the full mobile
+  scope.
+- Currency values use a hardcoded `"$" + String(format: "%.2f", _)`
+  (`SettingsView.usd(_:)`), not `.currency(code: "USD")` — the latter is
+  locale-dependent and can render as "USD 3.50" instead of "$3.50"
+  depending on the device's region; the real product is dollar-only
+  regardless of locale.
+- Also fixed two stale doc comments found while in this area: `Account
+  .swift`'s `AccountRole.admin` case said admin status is "not surfaced in
+  this app" (Settings' Usage section now surfaces it), and
+  `ToggleDevicePermissionsUseCase`'s doc comment still described a pending-
+  requests guard as something Section 8 "would" add — Section 8 already
+  found and documented that no such rule exists.
+
+- [x] `Domain/Models/UsageSummary.swift` — `.admin(AdminUsage)`/
+      `.subscription(SubscriptionUsage)`/`.noActivePlan(extraCreditsUsd:)`.
+- [x] `Domain/Models/SubscriptionPlan.swift` — `.active(ActivePlan)`/`.none`;
+      `ActivePlan.RenewalStatus` for the 4-way precedence above.
+- [x] `Domain/Models/PrivacyPreference.swift`
+- [x] `Domain/Repositories/AccountRepository.swift` (protocol) +
       `Data/Repositories/FakeAccountRepository.swift` — fixture usage/plan
-      data plus an injectable failure mode for `accountUnreachable`. No network.
-- [ ] `UseCases/LoadAccountUsageUseCase.swift`
-  - [ ] Typed error: `AccountUsageError.accountUnreachable`
-- [ ] `UseCases/UpdatePrivacyPreferenceUseCase.swift`
-  - [ ] Business rule: turning a preference off must not retroactively delete
-        already-collected data, only stop future collection
-  - [ ] Typed error: `PrivacyPreferenceError.updateFailedWhileOffline`
-- [ ] `Presentation/ViewModels/SettingsViewModel.swift`
-- [ ] `Presentation/Views/Settings/SettingsView.swift`:
-  - [ ] Usage section (bound to `UsageSummary`)
-  - [ ] Privacy switch
-  - [ ] Billing section: current plan (read-only), static notice text that
-        plan management happens on the web version — **no tappable link**,
+      data (3 selectable variants, see `FakeAccountRepository.UsageVariant`)
+      plus an injectable failure mode. No network.
+- [x] `UseCases/LoadAccountUsageUseCase.swift` — returns usage + plan
+      together as `AccountUsageSnapshot` (the real backend resolves both
+      from the same call).
+  - [x] Typed error: `AccountUsageError.accountUnreachable`
+- [x] `UseCases/UpdatePrivacyPreferenceUseCase.swift`
+  - [x] Typed error: `PrivacyPreferenceError.updateFailedWhileOffline`
+- [x] `Presentation/ViewModels/SettingsViewModel.swift`
+- [x] `Presentation/Views/Settings/SettingsView.swift`:
+  - [x] Usage section (bound to `UsageSummary`, all three states)
+  - [x] Privacy switch
+  - [x] Billing section: current plan (read-only), static notice text that
+        plan management happens on the web version — no tappable link,
         plain text only
-  - [ ] Log out action, calling `LogoutUseCase` from Section 3
-- [ ] Unit tests (`TIAGATests/LoadAccountUsageUseCaseTests.swift`,
+  - [x] Log out action, calling `LogoutUseCase` from Section 3
+- [x] Unit tests (`TIAGATests/LoadAccountUsageUseCaseTests.swift`,
       `UpdatePrivacyPreferenceUseCaseTests.swift`):
-  - [ ] `test_loadAccountUsage_succeeds_returningUsageAndPlan`
-  - [ ] `test_loadAccountUsage_fails_whenAccountIsUnreachable`
-  - [ ] `test_updatePrivacyPreference_succeeds_whenOnline`
-  - [ ] `test_updatePrivacyPreference_fails_whenOffline`
+  - [x] `test_loadAccountUsage_succeeds_returningUsageAndPlan`
+  - [x] `test_loadAccountUsage_fails_whenAccountIsUnreachable`
+  - [x] `test_updatePrivacyPreference_succeeds_whenOnline`
+  - [x] `test_updatePrivacyPreference_fails_whenOffline`
 
 ---
 
