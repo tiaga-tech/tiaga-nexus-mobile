@@ -362,17 +362,21 @@ current branch's blob for "after", in the same grid table:
 
 ## Current status
 
-Sections 1–8 (Design System, API Layer, Auth, Side Menu, Chat, Agent Chat,
-Devices, Permissions) are merged to `main`, plus a follow-up unifying
-`ChatMessage`'s domain shape with the real backend's. The Permissions
-approval overlay renders `.edit` requests as a native per-file tab view
-with a real line-level diff (`PermissionEditFilesView`/`PermissionEditDiff`),
-matching the web client's `EditReview`/`DiffView` — not the backend's
-flattened `detail` text, which only prefixes the first line of a multi-line
-change. Next up: Section 9, Settings. See `TODO.md` for the ordered,
-checkbox-tracked build plan (one feature branch at a time, merged to `main`
-before the next starts) and each merged section's notes on what shipped
-differently from the original plan.
+Sections 1–9 (Design System, API Layer, Auth, Side Menu, Chat, Agent Chat,
+Devices, Permissions, Settings) are merged to `main`, plus a follow-up
+unifying `ChatMessage`'s domain shape with the real backend's. The
+Permissions approval overlay renders `.edit` requests as a native per-file
+tab view with a real line-level diff (`PermissionEditFilesView`/
+`PermissionEditDiff`), matching the web client's `EditReview`/`DiffView` —
+not the backend's flattened `detail` text, which only prefixes the first
+line of a multi-line change. Settings' Usage section models all three of
+the real backend's mutually exclusive usage states (admin/subscribed/no
+active plan), reusing `TIAGAColor.forContextUsage`'s 60%/85% thresholds
+rather than a second, divergent color rule. This was the last section in
+the original build plan — see `TODO.md` for each merged section's notes on
+what shipped differently from the original plan, and this file's own "Live
+backend" section above for what's deliberately still out of scope (no
+`Remote*Repository` yet, no MCP domain concept).
 
 The live-backend policy above is current as of this writing, but no
 `Remote*Repository` has been built yet — every repository still defaults to

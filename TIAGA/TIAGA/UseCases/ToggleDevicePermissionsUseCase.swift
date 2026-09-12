@@ -8,10 +8,12 @@ import Foundation
 /// Switches whether a device's sensitive tools require operator approval,
 /// backing the Devices screen's permissions toggle.
 ///
-/// Section 8 (Permissions) extends this with a business rule: a device with
-/// unresolved pending permission requests can't have approval-gating turned
-/// off out from under them. No such rule exists yet — `PermissionRequest`
-/// isn't built until that section.
+/// Section 8 (Permissions) checked `DeviceManager.cs` directly: toggling is
+/// unconditional on the real product, with no guard against pending
+/// permission requests. The business rule this doc comment used to plan for
+/// ("can't disable while requests are pending") turned out not to exist —
+/// left here so a future session doesn't reintroduce it from the same
+/// original (unverified) assumption.
 struct ToggleDevicePermissionsUseCase {
     let repository: DeviceFleetRepository
 

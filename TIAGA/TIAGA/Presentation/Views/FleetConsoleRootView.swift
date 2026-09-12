@@ -27,8 +27,7 @@ extension EnvironmentValues {
 /// The fleet console shown to an authenticated `.active` account: a
 /// hamburger-triggered slide-out drawer (the side menu) over the current
 /// screen, with the app-wide permission approval overlay layered above
-/// everything. Settings is still a placeholder that carries Log Out since
-/// that's its real future home (see `LogoutUseCase`'s doc comment).
+/// everything.
 struct FleetConsoleRootView: View {
     let account: Account
     @ObservedObject var authViewModel: AuthViewModel
@@ -261,7 +260,7 @@ struct FleetConsoleRootView: View {
         case .devices:
             DevicesView()
         case .settings:
-            SettingsPlaceholderView(account: account, authViewModel: authViewModel)
+            SettingsView(account: account, authViewModel: authViewModel)
         }
     }
 
@@ -330,36 +329,6 @@ private struct PlaceholderDetailView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(TIAGAColor.background)
         .navigationTitle(title)
-        .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-/// Stand-in for the real Settings screen (Section 9) — carries Log Out for
-/// now since that's its real future home, so the auth loop stays closeable.
-private struct SettingsPlaceholderView: View {
-    let account: Account
-    @ObservedObject var authViewModel: AuthViewModel
-
-    var body: some View {
-        VStack(spacing: TIAGASpacing.lg) {
-            Text("Settings")
-                .font(TIAGATypography.screenTitle)
-                .foregroundStyle(TIAGAColor.textPrimary)
-            Text(account.email)
-                .font(TIAGATypography.subheadline)
-                .foregroundStyle(TIAGAColor.textSecondary)
-            Text("Not built yet — coming in a later section.")
-                .font(TIAGATypography.caption)
-                .foregroundStyle(TIAGAColor.textTertiary)
-            Button("Log Out") {
-                Task { await authViewModel.logout() }
-            }
-            .font(TIAGATypography.body)
-            .foregroundStyle(TIAGAColor.brandAccent)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(TIAGAColor.background)
-        .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
     }
 }

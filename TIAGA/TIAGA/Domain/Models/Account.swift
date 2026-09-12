@@ -25,7 +25,10 @@ struct Account: Equatable {
 /// exclusive — matches the real backend's `ADMIN_EMAILS`/`DEVELOPER_EMAILS`
 /// promotion model (`AuthService.cs`).
 enum AccountRole: String, Equatable {
-    /// Unlimited usage; access to the admin panel. Not surfaced in this app.
+    /// Unlimited usage; access to the admin panel (the panel itself is not
+    /// surfaced in this app, but Settings' Usage section does show an admin
+    /// account's real dollar cost instead of a percentage — see
+    /// `UsageSummary.admin`).
     case admin
     /// Access to the `/logs` page. Not surfaced in this app.
     case developer
