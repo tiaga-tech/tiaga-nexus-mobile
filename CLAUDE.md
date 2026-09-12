@@ -21,7 +21,7 @@ constraint layered on top of real product work, not the other way around —
 build it to the standard the real product deserves: model the real backend's
 actual shape faithfully (real auth flow, the actual account/billing model,
 real business rules — not invented ones), even though nothing in this app
-actually talks to it live (see "Testing safety: no live backend" below).
+actually talks to it live from Xcode Previews (see "Live backend" below).
 Treat the assessment rubric (DocC comments, the Use Case layer, named tests,
 the reflective report) as documentation discipline the product should have
 anyway, not busywork bolted on for a grade.
@@ -83,8 +83,8 @@ Rules:
   process, dispatch a task to an agent, …) is its own `...UseCase` struct with
   a typed domain error enum. Minimum 3 for the assessment; see rubric below.
 - `Domain/Repositories` holds **protocols only** (e.g. `AgentRosterRepository`).
-  Concrete implementations live in `Data/Repositories` — see "Testing safety:
-  no live backend" below for which kind to actually build.
+  Concrete implementations live in `Data/Repositories` — see "Live backend"
+  below for which kind to actually build.
 - Domain models get DocC comments answering: what real-world entity/event is
   this, and what business rule governs it. See `AgentState.swift` and
   `PermissionRequestUrgency.swift` for the expected style.
@@ -93,44 +93,66 @@ Folders under `TIAGA/TIAGA/` use Xcode's file-system-synchronized groups —
 just add/move files on disk, no `.pbxproj` editing needed. Empty layer folders
 currently hold a `.gitkeep`; delete it the moment real content lands there.
 
-## Testing safety: no live backend
+## Live backend: real everywhere except Xcode Previews
 
-**Every `Data/Repositories` implementation in this app is `Fake*Repository`,
-fixture-backed, no network calls — never `Remote*Repository` wired into the
-running app.** This isn't a placeholder to "finish later"; it's a deliberate
-decision.
+**Every repository has (or will have) two implementations — `Fake*Repository`
+(fixture-backed, no network) and `Remote*Repository` (the real backend at
+`https://tiaga.tech`) — and which one gets constructed depends on *where the
+app is running*, not a manual toggle:**
 
-Why: TIAGA isn't a toy backend. The real product dispatches persistent AI
-agents onto real machines, and a chat message, a permission approval, or a
-process kill sent from this app would be real — real LLM cost, real chat
-history on a real account, and in the worst case a real agent doing something
-destructive on a real machine, all triggered by what was meant to be casual
-UI testing. There is no "just testing" mode on the live backend.
+- **Xcode Previews (the SwiftUI canvas)** always use `Fake*Repository`.
+  Previews re-render constantly and must stay fast, offline, and
+  deterministic — they must never touch the network, depend on connectivity,
+  or mutate a real account. Detect Preview context with
+  `ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"`.
+- **The running app — Simulator or a real device — uses `Remote*Repository`.**
+  This is a real product; the operator wants to sign in with their real
+  account and see their real fleet, not a canned demo, when actually running
+  the app.
+
+This is a deliberate reversal of the original policy (fixture-backed
+*everywhere*, always — see TODO.md's Section 5 revision note and this file's
+own git history for that reasoning and when it changed). The risk that
+motivated the original policy hasn't gone away, it's just now accepted
+rather than avoided: TIAGA dispatches persistent AI agents onto real
+machines, so once a feature area's `Remote*Repository` exists, a chat
+message, a permission approval, or a process kill sent from the app running
+on Simulator/device is **real** — real LLM cost, real chat history, in the
+worst case a real agent doing something destructive on a real machine. There
+is no "just testing" mode on the live backend. Be deliberate exploring a
+live-wired screen manually. That exact risk is why Previews stay on fake
+data unconditionally, with no override.
 
 What this means in practice:
-- Every `Fake*Repository` uses deterministic, hardcoded/generated fixture
-  data — enough variety to exercise every state a Use Case or View needs
-  (online/offline devices, every `AgentState`, an about-to-expire permission
-  request, a rate-limited login, etc.), plus an injectable failure mode where
-  a test needs one (e.g. `fleetUnreachable`).
-- `TIAGAAPIClient`/`TIAGAEventStream`/`SessionCookieStore` (Section 2) still
-  exist as correct, tested transport-layer plumbing — they demonstrate the
-  real backend contract, which matters for this being a real product, not a
-  toy — but nothing in the app actually constructs one against
-  `https://tiaga.tech`. Don't wire one in without being explicitly asked to.
-- Unit tests already follow this by construction: every Use Case test runs
-  against a `Fake*Repository`, never a live network call.
-- **"Fixture-backed" means plain Swift values held in memory** — an array of
-  `Device`/`Agent`/`ChatMessage` literals inside the fake's init, nothing
-  else. No SQLite, no local database, no JSON fixture files on disk. A
-  chatbot reply from `FakeOrchestratorConversationRepository` is a hardcoded
-  `ChatMessage` value in that file, not fetched or generated from anything.
+- `Domain/Repositories` protocols are unchanged by this — a View/ViewModel/
+  Use Case never knows or cares which concrete repository it's talking to.
+- Each ViewModel's repository parameter should default based on the
+  Preview-context check above (Preview → `Fake*Repository`, else →
+  `Remote*Repository`), not hardcode `Fake*Repository` the way every
+  ViewModel currently does — that hardcoding is exactly what needs to change
+  as each feature area's `Remote*Repository` gets built.
+- `TIAGAAPIClient`/`TIAGAEventStream`/`SessionCookieStore` (Section 2) are
+  the transport layer every `Remote*Repository` is built on.
+- **Building a `Remote*Repository` is its own, separate piece of work per
+  feature area** (Auth first, then whichever of Chat/Agent Chat/Devices/
+  Permissions/Settings gets picked up next) — this section records the
+  *decision*, not a claim that every `Remote*Repository` already exists.
+  Check TODO.md for which ones are actually built before assuming a screen
+  is live; as of this writing, none are — every repository still defaults
+  to `Fake*Repository` everywhere, unconditionally, exactly as before.
+- Unit tests are unaffected either way: every Use Case test runs against a
+  purpose-built fake constructed directly in the test file, regardless of
+  what the running app defaults to.
+- **"Fixture-backed" still means plain Swift values held in memory** for
+  whichever `Fake*Repository` remains in play (every Preview, and any
+  feature area not yet wired live) — an array of `Device`/`Agent`/
+  `ChatMessage` literals inside the fake's init, nothing else. No SQLite, no
+  local database, no JSON fixture files on disk.
 - Two flavors of fake, both fine, pick whichever makes a given test/screen
   clearest:
-  - The `Data/Repositories/Fake*Repository.swift` used by the **running
-    app** (what you see when manually exploring the simulator) carries
-    richer demo data — several devices, agents spanning every state — so
-    there's something to actually look at.
+  - The `Data/Repositories/Fake*Repository.swift` used by **Previews and
+    any not-yet-live feature** carries richer demo data — several devices,
+    agents spanning every state — so there's something to actually look at.
   - A **Use Case unit test** often wants a smaller, purpose-built fake
     constructed right in the test file instead (see `MockURLDataSession` in
     `APIClientTests.swift` for the pattern) — just the one device/agent in
@@ -333,11 +355,17 @@ current branch's blob for "after", in the same grid table:
 
 ## Current status
 
-Sections 1–5 (Design System, API Layer, Auth, Side Menu, Chat) are merged to
-`main`. Next up: Section 6, Agent Chat. See `TODO.md` for the ordered,
-checkbox-tracked build plan (one feature branch at a time, merged to `main`
-before the next starts) and each merged section's notes on what shipped
-differently from the original plan.
+Sections 1–6 (Design System, API Layer, Auth, Side Menu, Chat, Agent Chat)
+are merged to `main`, plus a follow-up unifying `ChatMessage`'s domain
+shape with the real backend's. Next up: Section 7, Devices. See `TODO.md`
+for the ordered, checkbox-tracked build plan (one feature branch at a time,
+merged to `main` before the next starts) and each merged section's notes on
+what shipped differently from the original plan.
+
+The live-backend policy above is current as of this writing, but no
+`Remote*Repository` has been built yet — every repository still defaults to
+`Fake*Repository` unconditionally, in Previews and the running app alike.
+Wiring up the first one (`RemoteAuthSessionRepository`) hasn't been started.
 
 ## Assessment context (for reference — full spec given by the user)
 

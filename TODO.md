@@ -14,7 +14,7 @@ architecture rules — this file is the ordered task list, that file is the why.
 - [ ] Every Use Case gets a typed domain error enum whose messages are written for the operator, not a developer — no "something went wrong".
 - [ ] Order below is dependency order (each section only needs what already landed) — do not reorder without checking what a later section assumes exists.
 - [ ] Before opening any PR touching UI: boot a simulator, build, install, launch, and screenshot each new/changed screen (`xcrun simctl io booted screenshot`) and actually look at it — see CLAUDE.md's Testing section for the exact commands. Then still include a manual visual-confirmation checklist in the test plan for whatever that static screenshot pass can't cover (interactive multi-step flows, final polish) — the user runs those, Claude doesn't.
-- [ ] Every repository is fixture-backed (`Fake*Repository`) — **the app never talks to the real TIAGA backend.** TIAGA can dispatch real agents onto real machines; a `Remote*Repository` wired into the running app would mean casual manual testing sends real chat messages, real approvals, and real kills against a real account. See CLAUDE.md's testing-safety policy before building any repository implementation.
+- [ ] Every repository defaults to `Fake*Repository` in Xcode Previews and `Remote*Repository` everywhere else (Simulator, device) — see CLAUDE.md's live-backend policy before building any repository implementation. TIAGA can dispatch real agents onto real machines, so once a feature area is wired live, manually exploring it on Simulator/device sends real chat messages, real approvals, real kills against a real account — be deliberate. (No `Remote*Repository` exists yet as of Section 6 — every repository still defaults to `Fake*Repository` unconditionally.)
 - [ ] Screenshot every screen a PR adds or changes (not just the launch screen — use a DEBUG route override per screen), commit them to `docs/screenshots/`, and embed them in the PR body as a grid (HTML table, width-capped `<img>`s) — see CLAUDE.md's Testing section for the exact URL form (this repo is private) and the before/after pattern for a PR that changes an existing screen's UI.
 - [ ] The moment the user says something merged: `git checkout main && git pull`, delete that branch locally (`git branch -d`), `git fetch --prune` — without being asked.
 
@@ -65,13 +65,17 @@ conversion needed), error responses are `{ "error": "..." }`, and the live
 stream is Server-Sent Events at `GET /api/events` (not WebSocket — that's
 harness-only).
 
-**Status note (added after this section landed):** every later section now
-builds a `Fake*Repository`, not a `Remote*Repository` — see the testing-
-safety policy in CLAUDE.md and the Process checklist below. `TIAGAAPIClient`/
-`TIAGAEventStream`/`SessionCookieStore` stay as-is: correct, tested transport-
-layer plumbing that demonstrates the real contract, but nothing in the app
-constructs one against the live backend. That's a deliberate, not temporary,
-decision — don't "finish the job" by wiring it in later without being asked.
+**Status note (added after this section landed):** every section through
+Section 6 built only a `Fake*Repository`, never a `Remote*Repository` — a
+deliberate decision at the time (see CLAUDE.md's testing-safety policy as it
+stood then). **That policy has since changed** (after Section 6): `Fake*Repository`
+is now Xcode-Previews-only, and the running app (Simulator/device) should
+use `Remote*Repository` — see CLAUDE.md's current live-backend policy.
+`TIAGAAPIClient`/`TIAGAEventStream`/`SessionCookieStore` built here are
+exactly the transport layer every `Remote*Repository` needs; building the
+actual `Remote*Repository` per feature area is separate, not-yet-started
+work — check each section below for whether its `Remote*Repository` has
+landed before assuming a screen is live (none has, as of this writing).
 
 - [x] `Data/API/TIAGAAPIClient.swift` — base HTTP client (base URL, request
       building, JSON decoding, response/status handling). Built against an
@@ -117,10 +121,9 @@ in the parent repo before naming anything here.
 - [x] `Data/Repositories/FakeAuthSessionRepository.swift` — fixture-backed,
       no network calls. Fixture accounts covering both routing branches and
       the error paths below: one `.active`, one `.waitlisted`, plus a
-      wrong-password case and a rate-limited case. **No live backend
-      integration** — see CLAUDE.md's testing-safety policy: TIAGA can
-      dispatch real agents onto real machines, so nothing in this app talks
-      to the real backend.
+      wrong-password case and a rate-limited case. Built under the original
+      fake-everywhere policy — see CLAUDE.md's current live-backend policy;
+      `RemoteAuthSessionRepository` (for Simulator/device) doesn't exist yet.
 - [x] `UseCases/RestoreSessionUseCase.swift` — checks for a valid existing
       session on launch so a returning active user skips straight to the app.
   - [x] Typed error: `SessionRestoreError.connectionUnavailable`
@@ -310,7 +313,8 @@ sorting one array by `sentAt` is a one-liner, not separately unit-tested).
       fixture-backed: canned replies (with an artificial short delay to
       exercise the "busy" state honestly) and a scripted context-usage ramp
       so the 75%/100% color thresholds are actually reachable in testing. No
-      real LLM, no network — see CLAUDE.md's testing-safety policy.
+      real LLM, no network — built under the original fake-everywhere policy,
+      see CLAUDE.md's current live-backend policy.
 - [x] `UseCases/SendChatMessageUseCase.swift` — reusable for both this feature
       and Agent Chat (takes a `ConversationTarget`: `.orchestrator` or
       `.agent(AgentIdentifier)`).
