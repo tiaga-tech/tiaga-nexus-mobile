@@ -467,7 +467,7 @@ plan:
 
 ---
 
-## 8. Permissions — `feature/permissions`
+## 8. Permissions — `feature/permissions` ✅
 
 **Revision (from Section 7):** the per-device permissions toggle and
 `ToggleDevicePermissionsUseCase` already exist — Section 7 found the real
@@ -505,46 +505,65 @@ reference, since the backend never resolves it against a roster either.
 `deviceName` is sent directly alongside `deviceId` (no client-side join
 needed — same lesson as Section 7's retracted agents-per-device join).
 `kind` (`command`/`write`/`edit`) is a separate field from `tool` (the
-literal tool name). Structured per-file `edits` exist on the wire (for a
-real diff view) but this pass only renders the backend's own flattened
-`detail` text (already diff-formatted for `edit`) — `PermissionRequestFile`
-models the structured data for fidelity without building a tabbed diff UI
-yet. MCP-originated requests (`kind: "mcp"`, no real device) are out of
-scope — no MCP domain concept exists in this app.
+literal tool name). MCP-originated requests (`kind: "mcp"`, no real
+device) are out of scope — no MCP domain concept exists in this app.
+
+**Revision (post-review, same PR):** the first pass rendered `.edit`
+requests from the backend's flattened `detail` text through one
+syntax-highlighted block, with each file's path embedded as a plain line
+inside it — feedback was that the file name was indistinguishable from the
+code, and that the web client actually shows a switchable tab per file.
+Rebuilt to match `PermissionOverlay.tsx`'s `EditReview`/`FileLabel`/
+`DiffView` directly: `PermissionEditFilesView` renders a native SwiftUI tab
+per file (when there's more than one) plus a native file-path label above
+the code, and `PermissionEditDiff` runs a real LCS line diff (old → new) so
+every changed line is colored, not just the first line of a hunk (the
+`detail` string's own quirk, not what the web client's interactive overlay
+renders). Two more bugs surfaced and fixed in the same pass: the tab row
+needed its own horizontal scroll (`ScrollView(.horizontal)`, matching the
+web client's `overflow-x-auto`) for more files than fit the card width, and
+`HighlightedCodeView`'s `WKWebView` doesn't report its own content height
+back to SwiftUI, so a diff block was silently clipped —
+`HighlightedCodeView.estimatedHeight(forLineCount:)` fixes that. The
+fixture now has 5 files in one request (to exercise the tab overflow) and
+one file with two non-contiguous edits (to exercise multiple diff blocks
+stacked under a single tab).
 
 Depends on `Agent` (Section 4), `Device` (Section 7), and the root navigation
 container from Section 4 (this branch adds the overlay to it).
 
-- [ ] `Domain/Models/PermissionRequest.swift` — id (`String`, matching the
+- [x] `Domain/Models/PermissionRequest.swift` — id (`String`, matching the
       backend's opaque id), `DeviceIdentifier`, `deviceName`, `requester`
       (`String`), `tool`, `kind` (`PermissionRequestKind`: `.command`/
       `.write`/`.edit`), `file` (optional), `detail`, `files`
-      (optional `[PermissionRequestFile]` for a future diff view). DocC:
-      real-world event = the orchestrator or an agent on a protected device
-      blocking a sensitive tool call until a human decides; rule = no
-      timeout, waits indefinitely (see revision note above).
-- [ ] `Domain/Repositories/PermissionRequestRepository.swift` (protocol) —
+      (optional `[PermissionRequestFile]`, used by the tabbed diff view).
+      DocC: real-world event = the orchestrator or an agent on a protected
+      device blocking a sensitive tool call until a human decides; rule =
+      no timeout, waits indefinitely (see revision note above).
+- [x] `Domain/Repositories/PermissionRequestRepository.swift` (protocol) —
       observe the live stream of pending requests app-wide, `approve(_:)`, `deny(_:)`.
-- [ ] `Data/Repositories/FakePermissionRequestRepository.swift` — fixture
+- [x] `Data/Repositories/FakePermissionRequestRepository.swift` — fixture
       requests with a realistic (fabricated, harmless) command and edit
       sample so the approval UI's visual weight is genuinely exercised.
       Approve/deny only ever mutate the in-memory fixture — no real command
       is ever authorized to run anywhere. No network.
-- [ ] `UseCases/ReviewPermissionRequestUseCase.swift` — approve or deny.
-  - [ ] Business rule: cannot act on a request that is already resolved
-  - [ ] Typed error: `PermissionRequestError.requestAlreadyResolved`
-- [ ] `Presentation/ViewModels/PermissionRequestOverlayViewModel.swift` —
+- [x] `UseCases/ReviewPermissionRequestUseCase.swift` — approve or deny.
+  - [x] Business rule: cannot act on a request that is already resolved
+  - [x] Typed error: `PermissionRequestError.requestAlreadyResolved`
+- [x] `Presentation/ViewModels/PermissionRequestOverlayViewModel.swift` —
       root-scoped; observes the pending-request stream and, when more than one
       is outstanding, queues them (oldest first, one shown at a time).
-- [ ] `Presentation/Views/Permissions/PermissionRequestOverlayView.swift` —
-      device, requester, tool, `detail` (`TIAGATypography.command`),
-      Approve/Deny. No dismiss gesture of any kind.
-- [ ] Wire the overlay into the Section 4 root container as a `ZStack`/`.overlay`
+- [x] `Presentation/Views/Permissions/PermissionRequestOverlayView.swift` —
+      device, requester, tool, `detail` (`TIAGATypography.command`) for
+      `.command`/`.write`, a per-file tabbed diff view
+      (`PermissionEditFilesView`) for `.edit`, Approve/Deny. No dismiss
+      gesture of any kind.
+- [x] Wire the overlay into the Section 4 root container as a `ZStack`/`.overlay`
       so it renders above the active tab/screen regardless of route.
-- [ ] Unit tests (`TIAGATests/ReviewPermissionRequestUseCaseTests.swift`):
-  - [ ] `test_reviewPermissionRequest_approves_whenRequestIsPending`
-  - [ ] `test_reviewPermissionRequest_denies_whenRequestIsPending`
-  - [ ] `test_reviewPermissionRequest_fails_whenRequestAlreadyResolved`
+- [x] Unit tests (`TIAGATests/ReviewPermissionRequestUseCaseTests.swift`):
+  - [x] `test_reviewPermissionRequest_approves_whenRequestIsPending`
+  - [x] `test_reviewPermissionRequest_denies_whenRequestIsPending`
+  - [x] `test_reviewPermissionRequest_fails_whenRequestAlreadyResolved`
 
 ---
 
