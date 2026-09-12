@@ -11,15 +11,12 @@ import SwiftUI
 /// (there's no separate "tool usage" or "error" domain type; they're the
 /// same `ChatMessage` with a different `kind`).
 ///
-/// Chat's transcript labels each non-operator kind with a small colored dot
-/// + name above the bubble (matching the real web client's
-/// `MessageList.tsx`); Agent Chat's is simpler — matching
-/// `AgentChatWindow.tsx` — no labels, and `.tool` renders as a plain dim
-/// monospaced line rather than a bordered bubble, since the real agent-chat
-/// wire format has no separate kind at all, just a widened role.
+/// Matches the real product's `AgentChatWindow.tsx` styling for both
+/// screens: no kind labels, and `.tool` renders as a plain dim monospaced
+/// line rather than a bordered bubble, since it's showing what actually
+/// happened, not something being said.
 struct TranscriptRow: View {
     let message: ChatMessage
-    var showsKindLabels = true
 
     var body: some View {
         switch message.role {
@@ -29,38 +26,18 @@ struct TranscriptRow: View {
             }
 
         case .orchestrator:
-            if message.kind == .tool, !showsKindLabels {
+            switch message.kind {
+            case .tool:
                 MessageBubble(kind: .toolLine, text: message.text)
-            } else {
+            case .error:
                 row(alignTrailing: false) {
-                    VStack(alignment: .leading, spacing: TIAGASpacing.xs) {
-                        if showsKindLabels {
-                            kindLabel
-                        }
-                        MessageBubble(kind: bubbleKind, text: message.text)
-                    }
+                    MessageBubble(kind: .errorMessage, text: message.text)
+                }
+            case .voice, .context, .task, .ui:
+                row(alignTrailing: false) {
+                    MessageBubble(kind: .assistantMessage, text: message.text)
                 }
             }
-        }
-    }
-
-    private var bubbleKind: MessageBubble.Kind {
-        switch message.kind {
-        case .tool: return .toolBubble
-        case .error: return .errorMessage
-        case .voice, .context, .task, .ui: return .assistantMessage
-        }
-    }
-
-    private var kindLabel: some View {
-        HStack(spacing: TIAGASpacing.xs) {
-            Circle()
-                .fill(TIAGAColor.forChatMessageKind(message.kind))
-                .frame(width: 6, height: 6)
-            Text(message.kind.displayLabel.uppercased())
-                .font(TIAGATypography.caption)
-                .fontWeight(.semibold)
-                .foregroundStyle(TIAGAColor.forChatMessageKind(message.kind))
         }
     }
 
@@ -81,9 +58,6 @@ struct TranscriptRow: View {
             TranscriptRow(message: ChatMessage(role: .orchestrator, kind: .tool, text: "agent: Restart backend for new model"))
             TranscriptRow(message: ChatMessage(role: .orchestrator, kind: .voice, text: "On it — restarting the backend with the new model settings."))
             TranscriptRow(message: ChatMessage(role: .orchestrator, kind: .error, text: "The server restarted while agents were working. Their progress is saved."))
-            Divider()
-            TranscriptRow(message: ChatMessage(role: .orchestrator, kind: .tool, text: "bash: echo alive && date -u"), showsKindLabels: false)
-            TranscriptRow(message: ChatMessage(role: .orchestrator, kind: .error, text: "Stopped partway: the server restarted for an update."), showsKindLabels: false)
         }
         .padding()
     }

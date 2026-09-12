@@ -59,7 +59,7 @@ struct AgentChatView: View {
                             .padding(.top, TIAGASpacing.xl)
                     } else {
                         ForEach(viewModel.transcript) { message in
-                            TranscriptRow(message: message, showsKindLabels: false)
+                            TranscriptRow(message: message)
                         }
                     }
                 }
