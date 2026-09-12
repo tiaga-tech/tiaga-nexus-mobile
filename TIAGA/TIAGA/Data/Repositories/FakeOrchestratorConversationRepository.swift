@@ -26,11 +26,10 @@ final class FakeOrchestratorConversationRepository: OrchestratorConversationRepo
 
     private let lock = NSLock()
     private var messages: [ChatMessage]
-    private var toolUsageEvents: [ToolUsageEvent]
     private var dynamicUICards: [DynamicUICard]
     private var contextUsageFraction: Double
     private var isReplyStreaming = false
-    private var transcriptContinuations: [UUID: AsyncStream<[TranscriptEntry]>.Continuation] = [:]
+    private var transcriptContinuations: [UUID: AsyncStream<[ChatMessage]>.Continuation] = [:]
     private var usageContinuations: [UUID: AsyncStream<ConversationContextUsage>.Continuation] = [:]
 
     init(responseDelayNanoseconds: UInt64 = 250_000_000) {
@@ -50,22 +49,29 @@ final class FakeOrchestratorConversationRepository: OrchestratorConversationRepo
             ),
             ChatMessage(
                 role: .orchestrator,
+                kind: .tool,
+                text: "agent: Redesigning the landing page",
+                sentAt: now.addingTimeInterval(-330)
+            ),
+            ChatMessage(
+                role: .orchestrator,
+                kind: .tool,
+                text: "bash: xcodebuild build",
+                sentAt: now.addingTimeInterval(-300)
+            ),
+            ChatMessage(
+                role: .orchestrator,
                 text: "Atlas finished the landing page build a minute ago — it's green.",
                 sentAt: now.addingTimeInterval(-240)
             ),
-        ]
-        self.toolUsageEvents = [
-            ToolUsageEvent(
-                toolName: "agent",
-                targetDevice: DeviceIdentifier(rawValue: "device-home-pc"),
-                summary: "agent: Redesigning the landing page",
-                occurredAt: now.addingTimeInterval(-330)
-            ),
-            ToolUsageEvent(
-                toolName: "bash",
-                targetDevice: DeviceIdentifier(rawValue: "device-home-pc"),
-                summary: "bash: xcodebuild build",
-                occurredAt: now.addingTimeInterval(-300)
+            // The orchestrator's own conversation can carry an error too, not
+            // just an agent's — e.g. a backend hiccup unrelated to any one
+            // agent's task. Mirrors the real web client's `kind: 'error'`.
+            ChatMessage(
+                role: .orchestrator,
+                kind: .error,
+                text: "The server restarted while agents were working. Their progress is saved.",
+                sentAt: now.addingTimeInterval(-180)
             ),
         ]
         self.dynamicUICards = [
@@ -172,7 +178,7 @@ final class FakeOrchestratorConversationRepository: OrchestratorConversationRepo
         publishContextUsage()
     }
 
-    func observeTranscript() -> AsyncStream<[TranscriptEntry]> {
+    func observeTranscript() -> AsyncStream<[ChatMessage]> {
         let id = UUID()
         return AsyncStream { continuation in
             lock.withLock {
@@ -186,6 +192,7 @@ final class FakeOrchestratorConversationRepository: OrchestratorConversationRepo
                 while !Task.isCancelled {
                     try? await Task.sleep(nanoseconds: 60_000_000_000)
                 }
+                _ = self
             }
             continuation.onTermination = { [weak self] _ in
                 keepAlive.cancel()
@@ -206,6 +213,7 @@ final class FakeOrchestratorConversationRepository: OrchestratorConversationRepo
                 while !Task.isCancelled {
                     try? await Task.sleep(nanoseconds: 60_000_000_000)
                 }
+                _ = self
             }
             continuation.onTermination = { [weak self] _ in
                 keepAlive.cancel()
@@ -221,7 +229,6 @@ final class FakeOrchestratorConversationRepository: OrchestratorConversationRepo
 
         lock.withLock {
             messages.removeAll()
-            toolUsageEvents.removeAll()
             dynamicUICards.removeAll()
             contextUsageFraction = 0
         }
@@ -258,13 +265,8 @@ final class FakeOrchestratorConversationRepository: OrchestratorConversationRepo
 
     // MARK: - Thread-safe snapshots and publishing
 
-    private func snapshotTranscript() -> [TranscriptEntry] {
-        lock.withLock {
-            TranscriptMerger.merge(
-                messages: messages,
-                toolUsageEvents: toolUsageEvents
-            )
-        }
+    private func snapshotTranscript() -> [ChatMessage] {
+        lock.withLock { messages.sorted { $0.sentAt < $1.sentAt } }
     }
 
     private func currentContextUsage() -> ConversationContextUsage {

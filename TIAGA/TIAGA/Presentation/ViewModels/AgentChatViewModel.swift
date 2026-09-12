@@ -15,7 +15,7 @@ final class AgentChatViewModel: ObservableObject {
     let agentID: AgentIdentifier
 
     @Published private(set) var agent: Agent?
-    @Published private(set) var transcript: [TranscriptEntry] = []
+    @Published private(set) var transcript: [ChatMessage] = []
     @Published private(set) var sendErrorMessage: String?
     @Published private(set) var cancelErrorMessage: String?
     @Published private(set) var deleteErrorMessage: String?

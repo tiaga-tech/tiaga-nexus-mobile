@@ -85,6 +85,23 @@ extension TIAGAColor {
         }
     }
 
+    /// Maps a `ChatMessageKind` to the label/dot color a transcript row shows
+    /// above it, matching the real web client's `KIND_STYLES`
+    /// (`MessageList.tsx`) hue-for-hue: voice→blue, tool→amber,
+    /// context→neutral gray, task→success green, ui→violet (reusing the
+    /// compacting purple — a distinct violet token isn't otherwise needed),
+    /// error→danger red.
+    static func forChatMessageKind(_ kind: ChatMessageKind) -> Color {
+        switch kind {
+        case .voice: return brandAccent
+        case .tool: return statusWarning
+        case .context: return statusNeutral
+        case .task: return statusSuccess
+        case .ui: return statusCompacting
+        case .error: return statusDanger
+        }
+    }
+
     /// Maps a conversation's context-window usage (0...1) to a color, mirroring
     /// the web client's `ContextBar`: green below 60%, amber at 60% up to 85%,
     /// red at 85% and above. (Distinct from account/billing usage, which uses

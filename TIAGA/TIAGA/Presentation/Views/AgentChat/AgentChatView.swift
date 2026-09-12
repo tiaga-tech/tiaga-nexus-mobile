@@ -58,8 +58,8 @@ struct AgentChatView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.top, TIAGASpacing.xl)
                     } else {
-                        ForEach(viewModel.transcript) { entry in
-                            TranscriptRow(entry: entry)
+                        ForEach(viewModel.transcript) { message in
+                            TranscriptRow(message: message, showsKindLabels: false)
                         }
                     }
                 }
