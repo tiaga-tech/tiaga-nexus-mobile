@@ -23,7 +23,7 @@ struct MermaidDiagramView: View {
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
       <style>
-        html, body { margin: 0; padding: 0; background: transparent; }
+        html, body { margin: 0; padding: 0; height: 100%; background: transparent; }
         #stage {
           position: relative;
           width: 100%;

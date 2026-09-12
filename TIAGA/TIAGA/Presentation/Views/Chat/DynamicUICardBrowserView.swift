@@ -169,6 +169,7 @@ private struct CodeCardBody: View {
             if let code = card.code {
                 HighlightedCodeView(code: code, language: card.language ?? "plaintext")
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(TIAGAColor.surfaceElevated)
                     .clipShape(RoundedRectangle(cornerRadius: TIAGARadius.sm, style: .continuous))
             }
         }
@@ -224,6 +225,7 @@ private struct ExpandedCardView: View {
                                 isScrollable: true
                             )
                             .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(TIAGAColor.surfaceElevated)
                             .clipShape(RoundedRectangle(cornerRadius: TIAGARadius.sm, style: .continuous))
                         }
                     }
@@ -266,17 +268,16 @@ private struct TableView: View {
     let rows: [[String]]
 
     var body: some View {
-        ScrollView([.horizontal, .vertical], showsIndicators: true) {
-            VStack(alignment: .leading, spacing: 0) {
-                // Header row — visually distinct from the body via a flat
-                // elevated fill and secondary text.
-                HStack(spacing: 0) {
+        ScrollView(.horizontal, showsIndicators: true) {
+            // `Grid` sizes each row to its tallest cell (unlike a hand-rolled
+            // HStack of `.frame(maxWidth: .infinity)` cells, which clipped a
+            // wrapped cell's second line instead of growing the row).
+            Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
+                GridRow {
                     ForEach(columns, id: \.self) { column in
                         Text(column)
                             .font(TIAGATypography.caption)
                             .foregroundStyle(TIAGAColor.textSecondary)
-                            .fixedSize(horizontal: true, vertical: false)
-                            .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, TIAGASpacing.md)
                             .padding(.vertical, TIAGASpacing.sm)
                     }
@@ -284,20 +285,19 @@ private struct TableView: View {
                 .background(TIAGAColor.surfaceElevated)
 
                 ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
-                    HStack(spacing: 0) {
+                    if index > 0 {
+                        Divider()
+                            .gridCellColumns(columns.count)
+                            .overlay(TIAGAColor.border)
+                    }
+                    GridRow {
                         ForEach(Array(row.enumerated()), id: \.offset) { _, cell in
                             Text(cell)
                                 .font(TIAGATypography.caption)
                                 .foregroundStyle(TIAGAColor.textPrimary)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.horizontal, TIAGASpacing.md)
                                 .padding(.vertical, TIAGASpacing.sm)
                         }
-                    }
-                    if index < rows.count - 1 {
-                        Divider()
-                            .overlay(TIAGAColor.border)
                     }
                 }
             }

@@ -27,7 +27,7 @@ struct HighlightedCodeView: View {
         html, body {
           margin: 0;
           padding: 0;
-          background: rgba(0,0,0,0.5);
+          background: transparent;
           color: #e5e7eb;
           font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
           font-size: 13px;
