@@ -71,7 +71,7 @@ private struct DeviceRow: View {
                         .frame(width: 24)
 
                     Text(device.name)
-                        .font(TIAGATypography.body)
+                        .font(TIAGATypography.headline)
                         .foregroundStyle(device.isOnline ? TIAGAColor.textPrimary : TIAGAColor.textTertiary)
 
                     Spacer(minLength: TIAGASpacing.sm)
