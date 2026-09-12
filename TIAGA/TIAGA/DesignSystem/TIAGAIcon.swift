@@ -45,6 +45,8 @@ enum TIAGAIcon {
     static let dynamicUIBrowser = "rectangle.grid.2x2"
     static let copy = "doc.on.doc"
     static let expand = "arrow.up.left.and.arrow.down.right"
+    static let cancelTask = "stop.fill"
+    static let deleteAgent = "trash"
 }
 
 // MARK: - Domain state → icon mapping

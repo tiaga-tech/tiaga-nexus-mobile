@@ -31,6 +31,15 @@ private final class StubAgentRosterRepository: AgentRosterRepository {
         if shouldFail { throw AgentRosterError.fleetUnreachable }
         return agents
     }
+
+    // Not exercised by this use case — trivial conformance only.
+    func observeAgent(_ id: AgentIdentifier) -> AsyncStream<Agent> {
+        AsyncStream { $0.finish() }
+    }
+
+    func cancelActiveTask(for id: AgentIdentifier) async throws {}
+
+    func delete(_ id: AgentIdentifier) async throws {}
 }
 
 struct ListAgentRosterUseCaseTests {

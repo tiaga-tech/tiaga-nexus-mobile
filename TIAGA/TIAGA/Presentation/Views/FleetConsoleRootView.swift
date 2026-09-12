@@ -218,7 +218,12 @@ struct FleetConsoleRootView: View {
         case .chat:
             ChatView()
         case .agentChat(let agentID):
-            PlaceholderDetailView(title: "Agent Chat", subtitle: agentID.rawValue)
+            AgentChatView(agentID: agentID) {
+                // The agent was deleted — its own screen no longer has
+                // anything to show, so fall back to Chat rather than
+                // leaving the operator looking at a gone agent.
+                selectedRoute = .chat
+            }
         case .devices:
             PlaceholderDetailView(title: "Devices")
         case .settings:
@@ -257,7 +262,12 @@ struct FleetConsoleRootView: View {
         case "chat": return .chat
         case "devices": return .devices
         case "settings": return .settings
-        case "agentChat": return .agentChat(AgentIdentifier(rawValue: "agent-atlas"))
+        case "agentChat":
+            // TIAGA_DEBUG_AGENT_ID picks which fixture agent to land on
+            // (default "agent-atlas") — e.g. "agent-comet" to screenshot
+            // the composer-disabled-while-compacting state.
+            let agentID = ProcessInfo.processInfo.environment["TIAGA_DEBUG_AGENT_ID"] ?? "agent-atlas"
+            return .agentChat(AgentIdentifier(rawValue: agentID))
         default: return nil
         }
     }
