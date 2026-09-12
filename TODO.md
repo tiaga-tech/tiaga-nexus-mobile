@@ -219,56 +219,92 @@ Section 3 routes here). Introduces the `Agent` domain model (previously only
   - [x] `test_listAgentRoster_breaksTiesByMostRecentActivity`
   - [x] `test_listAgentRoster_fails_whenFleetIsUnreachable`
 
+**Post-merge fix (`fix/side-menu-swipe-gestures`, PR #12):** the swipe-to-open
+drag being a `.simultaneousGesture` meant Chat's own `ScrollView` scrolled on
+whatever small vertical component a real swipe has, alongside opening the
+drawer — fixed with an `isSideMenuOpenGestureActive` environment value that
+disables scrolling in the active route for the drag's duration. Reversing
+direction fast mid-swipe could also leave the drawer stuck at a partial
+offset — `onEnded` was re-checking the same horizontal-dominance ratio used
+to *start* the drag against the gesture's *final* translation, which a fast
+reversal could fail; fixed by tracking "did this drag ever commit to
+opening" instead, so release always resolves to fully open or fully closed.
+
 ---
 
-## 5. Chat (main orchestrator chat) — `feature/chat`
+## 5. Chat (main orchestrator chat) — `feature/chat` ✅
 
 The "Chat" entry from the side menu — conversation with the orchestrator.
 Voice is explicitly out of scope: no mic input, no spoken output, text only.
 
-- [ ] `Domain/Models/ChatMessage.swift` — id, role (`.operator` / `.orchestrator`),
+**Revision:** `DynamicUICardKind` shipped as `.text`/`.code`/`.table`/`.diagram`,
+not the originally planned `.error` — checked against the real backend's
+`DynamicUiManager.cs` mid-build and corrected to match (`fix(chat): match
+dynamic UI card kinds to backend`). Card rendering also grew beyond plain
+design-token boxes: `.diagram` renders its Mermaid source as dark-themed SVG
+(vendored mermaid.js), `.code` gets vendored highlight.js + github-dark
+syntax highlighting with copy, `.table` is a native `Grid`, and every card
+has an expand-to-fullscreen sheet — all mirroring the web client's card
+behavior, all rendered client-side from vendored JS/CSS (`TIAGA/Resources/`,
+never fetched at runtime) rather than trusting arbitrary backend HTML/CSS.
+Also added: a destructive/cancel confirmation dialog before reset, and a
+close button per dynamic UI card.
+
+**Post-merge fixes (PR #11 review, PR #12):** a translucent HTML background
+in code cards compositing lighter than the surrounding card; the Mermaid
+`#stage` div collapsing to zero height (`html`/`body` never got an explicit
+height, so its `height: 100%` resolved to nothing); the hand-rolled table
+`HStack` clipping a wrapped cell's second line instead of growing the row
+(replaced with `Grid`); the same `Grid`'s header background not filling its
+full column width; diagram pan/pinch-zoom never working via touch
+(`event.movementX`/`movementY` isn't reliably populated for touch-originated
+Pointer Events in WKWebView, and pinch was wheel-event-only); panning down
+in the fullscreen diagram triggering the sheet's own swipe-to-dismiss. See
+git history on `main` for the individual fix commits.
+
+- [x] `Domain/Models/ChatMessage.swift` — id, role (`.operator` / `.orchestrator`),
       text, sentAt.
-- [ ] `Domain/Models/ToolUsageEvent.swift` — tool name, target device (optional),
+- [x] `Domain/Models/ToolUsageEvent.swift` — tool name, target device (optional),
       human-readable summary, occurredAt. DocC: represents a tool call the
       orchestrator or an agent made, shown inline in the transcript.
-- [ ] `Domain/Models/DynamicUICard.swift` + `DynamicUICardKind` (`.text`, `.code`,
-      `.table`, `.error`) — mirrors the real product's AI-composed UI cards.
-- [ ] `Domain/Models/ConversationContextUsage.swift` — fraction used + derived
+- [x] `Domain/Models/DynamicUICard.swift` + `DynamicUICardKind` (`.text`, `.code`,
+      `.table`, `.diagram`) — mirrors the real product's AI-composed UI cards.
+- [x] `Domain/Models/ConversationContextUsage.swift` — fraction used + derived
       level (`.normal` / `.high` / `.critical`) at the 75%/100% thresholds.
-- [ ] `Domain/Repositories/OrchestratorConversationRepository.swift` (protocol) —
+- [x] `Domain/Repositories/OrchestratorConversationRepository.swift` (protocol) —
       send a message, observe the live transcript (messages + tool usage,
       merged in chronological order), observe context usage, reset the
       conversation, fetch dynamic UI card history.
-- [ ] `Data/Repositories/FakeOrchestratorConversationRepository.swift` —
+- [x] `Data/Repositories/FakeOrchestratorConversationRepository.swift` —
       fixture-backed: canned replies (with an artificial short delay to
       exercise the "busy" state honestly) and a scripted context-usage ramp
       so the 75%/100% color thresholds are actually reachable in testing. No
       real LLM, no network — see CLAUDE.md's testing-safety policy.
-- [ ] `UseCases/SendChatMessageUseCase.swift` — reusable for both this feature
+- [x] `UseCases/SendChatMessageUseCase.swift` — reusable for both this feature
       and Agent Chat (takes a `ConversationTarget`: `.orchestrator` or
       `.agent(AgentIdentifier)`).
-  - [ ] Business rule: message text cannot be empty/whitespace-only
-  - [ ] Business rule: cannot send while the target is still streaming a reply
-  - [ ] Typed error: `SendChatMessageError` (`.messageIsEmpty`, `.conversationBusy`)
-- [ ] `UseCases/ResetConversationUseCase.swift`
-  - [ ] Business rule: cannot reset while a response is actively streaming (data-loss risk mid-stream)
-  - [ ] Typed error: `ResetConversationError` (`.conversationBusy`)
-- [ ] `UseCases/LoadDynamicUICardHistoryUseCase.swift` — backs the "browse
+  - [x] Business rule: message text cannot be empty/whitespace-only
+  - [x] Business rule: cannot send while the target is still streaming a reply
+  - [x] Typed error: `SendChatMessageError` (`.messageIsEmpty`, `.conversationBusy`)
+- [x] `UseCases/ResetConversationUseCase.swift`
+  - [x] Business rule: cannot reset while a response is actively streaming (data-loss risk mid-stream)
+  - [x] Typed error: `ResetConversationError` (`.conversationBusy`)
+- [x] `UseCases/LoadDynamicUICardHistoryUseCase.swift` — backs the "browse
       dynamic UI" button.
-  - [ ] Typed error: `DynamicUICardHistoryError` (`.unavailable`)
-- [ ] `Presentation/ViewModels/ChatViewModel.swift`
-- [ ] `Presentation/Views/Chat/ChatView.swift` — transcript (messages + tool
+  - [x] Typed error: `DynamicUICardHistoryError` (`.unavailable`)
+- [x] `Presentation/ViewModels/ChatViewModel.swift`
+- [x] `Presentation/Views/Chat/ChatView.swift` — transcript (messages + tool
       usage interleaved), `ChatComposerBar`, reset button, `ContextUsageBar`,
       dynamic-UI-browser entry point.
-- [ ] `Presentation/Views/Chat/DynamicUICardBrowserView.swift`
-- [ ] Unit tests (`TIAGATests/SendChatMessageUseCaseTests.swift`,
+- [x] `Presentation/Views/Chat/DynamicUICardBrowserView.swift`
+- [x] Unit tests (`TIAGATests/SendChatMessageUseCaseTests.swift`,
       `ResetConversationUseCaseTests.swift`):
-  - [ ] `test_sendChatMessage_succeeds_withNonEmptyText`
-  - [ ] `test_sendChatMessage_fails_whenTextIsEmpty`
-  - [ ] `test_sendChatMessage_fails_whenConversationIsAlreadyStreaming`
-  - [ ] `test_resetConversation_succeeds_whenConversationIsIdle`
-  - [ ] `test_resetConversation_fails_whileConversationIsStreaming`
-  - [ ] `test_transcriptMerge_ordersMessagesAndToolUsageChronologically` (pure-function test on the merge logic backing the transcript list)
+  - [x] `test_sendChatMessage_succeeds_withNonEmptyText`
+  - [x] `test_sendChatMessage_fails_whenTextIsEmpty`
+  - [x] `test_sendChatMessage_fails_whenConversationIsAlreadyStreaming`
+  - [x] `test_resetConversation_succeeds_whenConversationIsIdle`
+  - [x] `test_resetConversation_fails_whileConversationIsStreaming`
+  - [x] `test_transcriptMerge_ordersMessagesAndToolUsageChronologically` (pure-function test on the merge logic backing the transcript list)
 
 ---
 

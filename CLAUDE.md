@@ -333,11 +333,11 @@ current branch's blob for "after", in the same grid table:
 
 ## Current status
 
-Clean slate — `main` holds only the empty Xcode project shell (no app target
-files). Planning docs (`CLAUDE.md`, `TODO.md`) exist on `docs/initial-planning`,
-not yet merged. Nothing else has been built. See `TODO.md` for the ordered,
+Sections 1–5 (Design System, API Layer, Auth, Side Menu, Chat) are merged to
+`main`. Next up: Section 6, Agent Chat. See `TODO.md` for the ordered,
 checkbox-tracked build plan (one feature branch at a time, merged to `main`
-before the next starts) — start at Section 1.
+before the next starts) and each merged section's notes on what shipped
+differently from the original plan.
 
 ## Assessment context (for reference — full spec given by the user)
 
