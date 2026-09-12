@@ -15,7 +15,6 @@ import WebKit
 struct VendoredWebView: UIViewRepresentable {
     let html: String
     var isScrollEnabled = false
-    var allowsZoom = false
 
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
@@ -39,7 +38,10 @@ struct VendoredWebView: UIViewRepresentable {
         webView.scrollView.showsVerticalScrollIndicator = isScrollEnabled
         webView.scrollView.showsHorizontalScrollIndicator = isScrollEnabled
         webView.scrollView.minimumZoomScale = 1
-        webView.scrollView.maximumZoomScale = allowsZoom ? 4 : 1
-        webView.scrollView.pinchGestureRecognizer?.isEnabled = allowsZoom
+        webView.scrollView.maximumZoomScale = 1
+        // Pinch-to-zoom is always handled by the page's own JS (see
+        // MermaidDiagramView) when it wants zoom at all — leaving the native
+        // recognizer enabled competes with it for the same two-finger touch.
+        webView.scrollView.pinchGestureRecognizer?.isEnabled = false
     }
 }

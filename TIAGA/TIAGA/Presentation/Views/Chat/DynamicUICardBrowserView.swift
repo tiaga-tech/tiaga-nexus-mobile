@@ -280,6 +280,7 @@ private struct TableView: View {
                             .foregroundStyle(TIAGAColor.textSecondary)
                             .padding(.horizontal, TIAGASpacing.md)
                             .padding(.vertical, TIAGASpacing.sm)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
                 .background(TIAGAColor.surfaceElevated)
@@ -297,6 +298,7 @@ private struct TableView: View {
                                 .foregroundStyle(TIAGAColor.textPrimary)
                                 .padding(.horizontal, TIAGASpacing.md)
                                 .padding(.vertical, TIAGASpacing.sm)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
                 }

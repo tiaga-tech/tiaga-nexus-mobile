@@ -73,8 +73,23 @@ struct MermaidDiagramView: View {
         const diagram = document.getElementById('diagram');
         let zoom = 1;
         let pan = { x: 0, y: 0 };
-        let activePointer = null;
-        let pinch = null;
+        // Keyed by pointerId so one- and two-finger touch gestures can be
+        // told apart. Deltas are computed from these tracked positions, not
+        // event.movementX/Y — WKWebView does not reliably populate movement
+        // deltas for touch-originated Pointer Events, only for mouse.
+        const activePointers = new Map();
+        let panStart = null;
+        let pinchStart = null;
+
+        function pointerMidpoint() {
+          const pts = Array.from(activePointers.values());
+          return { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+        }
+
+        function pointerDistance() {
+          const pts = Array.from(activePointers.values());
+          return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+        }
 
         function renderState() {
           const rendered = diagram.querySelector('svg');
@@ -107,25 +122,51 @@ struct MermaidDiagramView: View {
           if (!stage.classList.contains('interactive')) return;
           event.preventDefault();
           stage.setPointerCapture(event.pointerId);
-          activePointer = event.pointerId;
+          activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+          if (activePointers.size === 1) {
+            const [pt] = activePointers.values();
+            panStart = { x: pt.x, y: pt.y };
+            pinchStart = null;
+          } else if (activePointers.size === 2) {
+            pinchStart = { distance: pointerDistance(), midpoint: pointerMidpoint() };
+            panStart = null;
+          }
         });
 
         stage.addEventListener('pointermove', function (event) {
-          if (event.pointerId !== activePointer) return;
+          if (!activePointers.has(event.pointerId)) return;
           event.preventDefault();
-          pan.x += event.movementX;
-          pan.y += event.movementY;
-          renderState();
+          activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+          if (activePointers.size === 1 && panStart) {
+            const [pt] = activePointers.values();
+            pan.x += pt.x - panStart.x;
+            pan.y += pt.y - panStart.y;
+            panStart = { x: pt.x, y: pt.y };
+            renderState();
+          } else if (activePointers.size === 2 && pinchStart) {
+            const distance = pointerDistance();
+            const midpoint = pointerMidpoint();
+            zoomAt(distance / pinchStart.distance, midpoint.x, midpoint.y);
+            pinchStart = { distance: distance, midpoint: midpoint };
+          }
         });
 
-        stage.addEventListener('pointerup', function (event) {
-          if (event.pointerId !== activePointer) return;
-          activePointer = null;
-        });
+        function releasePointer(event) {
+          activePointers.delete(event.pointerId);
+          if (activePointers.size === 1) {
+            const [pt] = activePointers.values();
+            panStart = { x: pt.x, y: pt.y };
+            pinchStart = null;
+          } else {
+            panStart = null;
+            pinchStart = null;
+          }
+        }
 
-        stage.addEventListener('pointercancel', function () {
-          activePointer = null;
-        });
+        stage.addEventListener('pointerup', releasePointer);
+        stage.addEventListener('pointercancel', releasePointer);
 
         stage.addEventListener('wheel', function (event) {
           if (!stage.classList.contains('interactive')) return;
@@ -154,11 +195,11 @@ struct MermaidDiagramView: View {
             ? html.replacingOccurrences(of: "<div id=\"stage\">", with: "<div id=\"stage\" class=\"interactive\">")
             : html
 
-        VendoredWebView(
-            html: interactiveHTML,
-            isScrollEnabled: isInteractive,
-            allowsZoom: isInteractive
-        )
-        .frame(minHeight: 220)
+        // Pan and pinch-zoom are both implemented in the page's own JS via
+        // Pointer Events (see the template above) — the native WKWebView
+        // scroll/zoom machinery stays off so it can't compete with them for
+        // the same touches.
+        VendoredWebView(html: interactiveHTML, isScrollEnabled: false)
+            .frame(minHeight: 220)
     }
 }
