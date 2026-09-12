@@ -13,6 +13,7 @@ import SwiftUI
 /// The result is a dark themed, self-contained page rendered by `WKWebView`.
 struct MermaidDiagramView: View {
     let source: String
+    var isInteractive = false
 
     private static let template = """
     <!DOCTYPE html>
@@ -57,7 +58,11 @@ struct MermaidDiagramView: View {
             .replacingOccurrences(of: "<", with: "&lt;")
             .replacingOccurrences(of: ">", with: "&gt;")
             .replacingOccurrences(of: "\"", with: "&quot;")
-        VendoredWebView(html: Self.template.replacingOccurrences(of: "__SOURCE__", with: escaped))
-            .frame(minHeight: 220)
+        VendoredWebView(
+            html: Self.template.replacingOccurrences(of: "__SOURCE__", with: escaped),
+            isScrollEnabled: isInteractive,
+            allowsZoom: isInteractive
+        )
+        .frame(minHeight: 220)
     }
 }

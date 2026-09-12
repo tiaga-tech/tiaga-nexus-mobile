@@ -114,7 +114,7 @@ struct ChatView: View {
                         .foregroundStyle(TIAGAColor.textSecondary)
                     ContextUsageBar(fraction: viewModel.contextUsage.fraction)
                         .frame(height: TIAGASpacing.xs)
-                    Text(contextLabel)
+                    Text(contextPercentageLabel)
                         .font(TIAGATypography.caption)
                         .foregroundStyle(contextColor)
                 }
@@ -149,15 +149,8 @@ struct ChatView: View {
         .padding(.vertical, TIAGASpacing.md)
     }
 
-    private var contextLabel: String {
-        switch viewModel.contextUsage.level {
-        case .normal:
-            return "Normal"
-        case .high:
-            return "High"
-        case .critical:
-            return "Critical"
-        }
+    private var contextPercentageLabel: String {
+        "\(Int((viewModel.contextUsage.fraction * 100).rounded()))%"
     }
 
     private var contextColor: Color {

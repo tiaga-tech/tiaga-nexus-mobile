@@ -19,12 +19,11 @@ enum ConversationContextLevel: String, Equatable, Sendable {
 /// The orchestrator conversation's context-window usage.
 ///
 /// Mirrors the backend's percentage-only `usage` event (raw token counts never
-/// leave the server) and its `ContextWarnFraction = 0.75` threshold. The level
-/// is derived, never stored: `.normal` below 75%, `.high` at 75% up to 100%,
-/// `.critical` at 100%.
+/// leave the server) and the web client's `ContextBar` thresholds: green below
+/// 60%, amber at 60% up to 85%, red at 85% and above.
 struct ConversationContextUsage: Equatable, Sendable {
-    static let highThreshold: Double = 0.75
-    static let criticalThreshold: Double = 1.0
+    static let highThreshold: Double = 0.60
+    static let criticalThreshold: Double = 0.85
 
     /// 0...1 — how full the context window is.
     let fraction: Double

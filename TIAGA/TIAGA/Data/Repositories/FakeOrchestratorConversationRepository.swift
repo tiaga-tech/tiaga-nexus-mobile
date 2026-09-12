@@ -92,6 +92,17 @@ final class FakeOrchestratorConversationRepository: OrchestratorConversationRepo
                 diagram: nil
             ),
             DynamicUICard(
+                id: "ui-5",
+                title: "Swift snippet",
+                kind: .code,
+                text: nil,
+                code: "struct Agent {\n    let name: String\n    var state: AgentState\n    // Idle agents are ready for work.\n    var isAvailable: Bool {\n        state == .idle\n    }\n}",
+                language: "swift",
+                columns: nil,
+                rows: nil,
+                diagram: nil
+            ),
+            DynamicUICard(
                 id: "ui-3",
                 title: "Fleet status",
                 kind: .table,
