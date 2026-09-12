@@ -37,11 +37,37 @@ final class FakePermissionRequestRepository: PermissionRequestRepository, @unche
                 tool: "edit",
                 kind: .edit,
                 file: "web/src/App.tsx",
-                detail: "- const title = 'Old'\n+ const title = 'New'",
+                // Matches the real backend's own detail-building exactly
+                // (PermissionManager.cs's DescribeEdit): each edit becomes
+                // "- {old}\n+ {new}\n", concatenated per edit — note only
+                // the FIRST line of a multi-line old/new gets the "-"/"+"
+                // prefix; continuation lines render unprefixed. A one-line
+                // change doesn't exercise that, so this fixture has two
+                // edits, one of them multi-line, to test it honestly.
+                detail: """
+                - function getTitle() {
+                  return 'Old Title'
+                }
+                + function getTitle() {
+                  return 'New Title'
+                }
+                - import { title } from './constants'
+                + import { title, subtitle } from './constants'
+                import { logger } from './logger'
+                """,
                 files: [
                     PermissionRequestFile(
                         path: "web/src/App.tsx",
-                        edits: [PermissionRequestEdit(old: "const title = 'Old'", new: "const title = 'New'")]
+                        edits: [
+                            PermissionRequestEdit(
+                                old: "function getTitle() {\n  return 'Old Title'\n}",
+                                new: "function getTitle() {\n  return 'New Title'\n}"
+                            ),
+                            PermissionRequestEdit(
+                                old: "import { title } from './constants'",
+                                new: "import { title, subtitle } from './constants'\nimport { logger } from './logger'"
+                            ),
+                        ]
                     ),
                 ]
             ),
