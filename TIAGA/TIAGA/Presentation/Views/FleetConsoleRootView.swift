@@ -253,7 +253,7 @@ struct FleetConsoleRootView: View {
             // which tore the view down and let a fresh one take its place.
             .id(agentID)
         case .devices:
-            PlaceholderDetailView(title: "Devices")
+            DevicesView()
         case .settings:
             SettingsPlaceholderView(account: account, authViewModel: authViewModel)
         }
