@@ -27,6 +27,13 @@ enum TIAGATypography {
     /// Secondary/supporting text (timestamps, device type, last-seen).
     static let subheadline = Font.system(.subheadline, design: .default, weight: .regular)
 
+    /// A name emphasized inline within otherwise-secondary text at the same
+    /// size — e.g. the requester/device name in "TIAGA on Mac wants to run
+    /// a command" (matches the web client's `font-medium` spans in
+    /// `PermissionOverlay.tsx`, which are the same size as the surrounding
+    /// text, just bolder).
+    static let subheadlineEmphasis = Font.system(.subheadline, design: .default, weight: .semibold)
+
     /// Small metadata (status pill labels, badge counts).
     static let caption = Font.system(.caption, design: .default, weight: .medium)
 
