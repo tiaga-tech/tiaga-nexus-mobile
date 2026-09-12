@@ -57,6 +57,12 @@ final class TIAGAAPIClient {
         _ = try await sendRaw(path: path, method: "POST", body: try encoder.encode(body))
     }
 
+    /// PUT a JSON body, expecting a JSON response back (e.g. `/api/devices/{id}`).
+    func put<Body: Encodable, Response: Decodable>(_ path: String, body: Body) async throws -> Response {
+        let data = try await sendRaw(path: path, method: "PUT", body: try encoder.encode(body))
+        return try decodeOrThrow(data)
+    }
+
     /// POST with no body and no meaningful response body (e.g. `/api/reset`).
     func postExpectingNoContent(_ path: String) async throws {
         _ = try await sendRaw(path: path, method: "POST", body: nil)

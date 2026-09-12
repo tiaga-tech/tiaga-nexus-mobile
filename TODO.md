@@ -688,9 +688,20 @@ everywhere-else selection rule every `Remote*Repository` follows.
       reaches a real LLM (real cost) and, if it dispatches a tool call, a
       real agent doing real things on a real machine. Needs `TIAGAEventStream`
       for streaming tokens/tool events, not just request/response.
-- [ ] `RemoteDeviceFleetRepository` (Devices) — device list + online
-      presence (likely via `TIAGAEventStream`, not polling) + the
-      permissions-required toggle.
+- [x] `RemoteDeviceFleetRepository` (Devices) — device list
+      (`GET /api/devices`) + the permissions-required toggle
+      (`PUT /api/devices/{id}`). **Revision:** checked `DevicesController.cs`/
+      `DeviceManager.cs` directly — device presence is *also* pushed live
+      over the shared `/api/events` SSE stream (identical payload shape to
+      the REST list), but `ObserveDeviceFleetUseCase`/`DevicesViewModel` are
+      a one-shot snapshot fetch, not an ongoing subscription — nothing in
+      this app actually consumes a live stream yet. Wiring SSE here now
+      would be speculative; this repository is plain REST, matching what
+      the app actually does today. Revisit together with Permissions/Chat
+      below, which will need the same shared `/api/events` stream — building
+      a reusable multiplexer once, when there's a second real consumer, beats
+      guessing at its shape now for a single one. Added `TIAGAAPIClient.put`
+      (PUT was the only missing HTTP method) for the toggle endpoint.
 - [ ] `RemotePermissionRequestRepository` (Permissions) — the pending-
       requests stream (`TIAGAEventStream`) + approve/deny. Real approval
       overlay, real consequences: an approval here lets a real tool call

@@ -19,9 +19,15 @@ final class DevicesViewModel: ObservableObject {
     private let observeDeviceFleetUseCase: ObserveDeviceFleetUseCase
     private let toggleDevicePermissionsUseCase: ToggleDevicePermissionsUseCase
 
-    init(deviceFleetRepository: DeviceFleetRepository = FakeDeviceFleetRepository()) {
-        self.observeDeviceFleetUseCase = ObserveDeviceFleetUseCase(repository: deviceFleetRepository)
-        self.toggleDevicePermissionsUseCase = ToggleDevicePermissionsUseCase(repository: deviceFleetRepository)
+    init(deviceFleetRepository: DeviceFleetRepository? = nil) {
+        // Fake*Repository only inside Xcode Previews — everywhere else
+        // (Simulator or a real device) talks to the real backend. See
+        // AGENTS.md's "Live backend" policy.
+        let repository = deviceFleetRepository ?? (
+            ProcessInfo.isRunningInXcodePreview ? FakeDeviceFleetRepository() : RemoteDeviceFleetRepository()
+        )
+        self.observeDeviceFleetUseCase = ObserveDeviceFleetUseCase(repository: repository)
+        self.toggleDevicePermissionsUseCase = ToggleDevicePermissionsUseCase(repository: repository)
     }
 
     func load() async {
