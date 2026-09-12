@@ -55,14 +55,12 @@ struct PermissionRequestOverlayView: View {
                     .foregroundStyle(TIAGAColor.textSecondary)
             }
 
-            ScrollView {
-                Text(request.detail)
-                    .font(TIAGATypography.command)
-                    .foregroundStyle(TIAGAColor.textPrimary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .frame(maxHeight: 200)
-            .padding(TIAGASpacing.sm)
+            HighlightedCodeView(
+                code: request.detail,
+                language: detailHighlightLanguage(for: request),
+                isScrollable: true
+            )
+            .frame(maxWidth: .infinity, maxHeight: 200, alignment: .leading)
             .background(TIAGAColor.surfaceElevated)
             .clipShape(RoundedRectangle(cornerRadius: TIAGARadius.sm, style: .continuous))
 
@@ -93,6 +91,48 @@ struct PermissionRequestOverlayView: View {
             RoundedRectangle(cornerRadius: TIAGARadius.lg, style: .continuous)
                 .strokeBorder(TIAGAColor.border, lineWidth: 1)
         )
+    }
+
+    /// Which vendored highlight.js grammar best renders `detail`, matching
+    /// how the real backend actually shapes each kind (`PermissionManager.cs`'s
+    /// `Describe`): `.command` is a shell invocation, `.edit`'s `detail` is
+    /// already diff-formatted text ("- old\n+ new" lines — this is what
+    /// actually gives the red/green backgrounds, not a custom diff view),
+    /// and `.write`'s `detail` is a full new file's content, best
+    /// highlighted by its extension since the tool itself carries no
+    /// explicit language.
+    private func detailHighlightLanguage(for request: PermissionRequest) -> String {
+        switch request.kind {
+        case .command: return "bash"
+        case .edit: return "diff"
+        case .write: return Self.language(forFileExtension: request.file)
+        }
+    }
+
+    private static func language(forFileExtension path: String?) -> String {
+        let ext = path.flatMap { $0.split(separator: ".").last }.map { $0.lowercased() }
+        switch ext {
+        case "swift": return "swift"
+        case "js", "jsx", "mjs": return "javascript"
+        case "ts", "tsx": return "typescript"
+        case "py": return "python"
+        case "json": return "json"
+        case "yml", "yaml": return "yaml"
+        case "md": return "markdown"
+        case "html", "xml": return "xml"
+        case "scss": return "scss"
+        case "css": return "css"
+        case "sh", "bash": return "bash"
+        case "go": return "go"
+        case "rs": return "rust"
+        case "rb": return "ruby"
+        case "java": return "java"
+        case "c", "h": return "c"
+        case "cpp", "cc", "hpp": return "cpp"
+        case "cs": return "csharp"
+        case "sql": return "sql"
+        default: return "plaintext"
+        }
     }
 }
 
