@@ -406,46 +406,75 @@ cancel or delete.
 
 ---
 
-## 7. Devices — `feature/devices`
+## 7. Devices — `feature/devices` ✅
 
-**Note (added while building Section 6):** each device's screen/row should
-show which agent(s) are pinned to it — `Agent.pinnedDeviceID` already models
-this (Section 4), so it's a lookup against the existing agent roster, not a
-new domain field.
+**Revision:** the note added while building Section 6 ("each device's row
+should show which agent(s) are pinned to it") was never actually checked
+against the real product and turned out to be wrong — read `DevicesPane.tsx`
+directly while building this section: it has no mention of "agent"
+anywhere. Retracted; `DevicesView` shows only device data.
 
-- [ ] `Domain/Models/Device.swift` — `DeviceIdentifier`, display name,
-      `DeviceType` (`.macOS`/`.windows`/`.linux`), `isProtected`, `lastSeenAt`.
-      DocC: real-world entity = a machine with the harness installed; rule =
-      presence is derived, not just a stored flag (see below).
-- [ ] `Domain/Models/DevicePresence.swift` — `.online` / `.offline`, derived
-      from `lastSeenAt` against a staleness threshold, not trusted as a raw
-      server flag (a device can go dark without sending a final "offline" event).
-- [ ] `Domain/Repositories/DeviceFleetRepository.swift` (protocol) +
+Two more corrections from the same pass of checking `DevicesPane.tsx` +
+`DeviceManager.cs` directly before building, instead of only against this
+plan:
+- **No `lastSeenAt`/staleness derivation exists on the real product at
+  all**, client or server. `DeviceManager.cs`'s `Online` flag is a plain
+  boolean flipped on connect/disconnect (`d.Online = true` / `= false`) —
+  there's no timestamp-based heuristic to replicate. Dropped
+  `DevicePresence.swift` and the staleness business rule entirely;
+  `Device.isOnline` is a plain trusted boolean, matching the real wire
+  shape exactly.
+- **The real field is `permissionsRequired: boolean`** (backend:
+  `PermissionsRequired`, defaults `true`), not the invented `isProtected` —
+  renamed to match. And on the real product this isn't a future-section
+  read-only flag: `DeviceRow` in `DevicesPane.tsx` already renders a live,
+  tappable pill for it ("permissions on"/"auto"). Pulled that forward into
+  this section instead of deferring to Section 8 as originally planned —
+  `ToggleDevicePermissionsUseCase` (renamed from the planned
+  `ToggleDeviceProtectionUseCase`) and the interactive pill both exist now.
+  Displayed here as "Permissions: On"/"Off" rather than web's "on"/"auto"
+  wording. Section 8 still adds its own business rule on top (can't disable
+  while a device has unresolved pending permission requests) once
+  `PermissionRequest` exists.
+
+- [x] `Domain/Models/Device.swift` — `DeviceIdentifier`, display name,
+      `DeviceType` (`.mac`/`.windows`/`.linux`, raw values matching the
+      backend's lowercase wire values), `isOnline`, `permissionsRequired`.
+- [x] `Domain/Repositories/DeviceFleetRepository.swift` (protocol) +
       `Data/Repositories/FakeDeviceFleetRepository.swift` — fixture devices
-      spanning online/offline/stale-heartbeat (for the boundary test below)
-      plus an injectable failure mode for `fleetUnreachable`. No network.
-- [ ] `UseCases/ObserveDeviceFleetUseCase.swift`
-  - [ ] Business rule: a device is `.offline` if `lastSeenAt` is older than the
-        staleness threshold, even if the last reported state was online
-  - [ ] Business rule: sort online devices before offline, then alphabetically
-  - [ ] Typed error: `DeviceFleetError.fleetUnreachable`
-- [ ] `Presentation/ViewModels/DevicesViewModel.swift`
-- [ ] `Presentation/Views/Devices/DevicesView.swift` — row per device: name,
-      `TIAGAIcon` for OS, `StatusPill` for presence, last-seen text. The row's
-      protection `Toggle` is added in Section 8 (needs `ToggleDeviceProtectionUseCase`);
-      this branch just renders `isProtected` read-only.
-- [ ] Unit tests (`TIAGATests/ObserveDeviceFleetUseCaseTests.swift`):
-  - [ ] `test_observeDeviceFleet_sortsOnlineBeforeOffline`
-  - [ ] `test_observeDeviceFleet_treatsStaleHeartbeatAsOffline` (boundary: reported online, `lastSeenAt` past threshold)
-  - [ ] `test_observeDeviceFleet_treatsRecentHeartbeatAsOnline` (boundary: just inside threshold)
-  - [ ] `test_observeDeviceFleet_fails_whenFleetIsUnreachable`
+      spanning online/offline and permissions on/off, plus an injectable
+      failure mode for `fleetUnreachable`. No network. Mutable (a
+      continuation-free in-memory dictionary, since nothing observes it
+      live yet) to support the permissions toggle.
+- [x] `UseCases/ObserveDeviceFleetUseCase.swift`
+  - [x] Business rule: sort online devices before offline, then alphabetically
+  - [x] Typed error: `DeviceFleetError.fleetUnreachable`
+- [x] `UseCases/ToggleDevicePermissionsUseCase.swift` (pulled forward from
+      Section 8 — see Revision above)
+  - [x] Typed error: `DevicePermissionsError.deviceNoLongerExists`
+- [x] `Presentation/ViewModels/DevicesViewModel.swift`
+- [x] `Presentation/Views/Devices/DevicesView.swift` — row per device: name,
+      `TIAGAIcon` for OS, `StatusPill` for online/offline, and a tappable
+      "Permissions: On"/"Off" pill.
+- [x] Unit tests (`TIAGATests/ObserveDeviceFleetUseCaseTests.swift`,
+      `ToggleDevicePermissionsUseCaseTests.swift`):
+  - [x] `test_observeDeviceFleet_sortsOnlineBeforeOffline`
+  - [x] `test_observeDeviceFleet_breaksTiesAlphabetically` (boundary: same online status, falls through to the alphabetical tiebreak)
+  - [x] `test_observeDeviceFleet_fails_whenFleetIsUnreachable`
+  - [x] `test_toggleDevicePermissions_enables_whenCurrentlyDisabled`
+  - [x] `test_toggleDevicePermissions_disables_whenCurrentlyEnabled`
+  - [x] `test_toggleDevicePermissions_fails_whenDeviceNoLongerExists`
 
 ---
 
 ## 8. Permissions — `feature/permissions`
 
-Two related pieces: the approval pop-up that must appear above whatever screen
-the operator is on, and the per-device switch that turns approval-gating on/off.
+**Revision (from Section 7):** the per-device permissions toggle and
+`ToggleDevicePermissionsUseCase` already exist — Section 7 found the real
+product has this live in the device row, not deferred here, and built it
+there. This section now only adds the approval pop-up, plus one more
+business rule on top of the existing toggle use case.
+
 Depends on `Agent` (Section 4), `Device` (Section 7), and the root navigation
 container from Section 4 (this branch adds the overlay to it).
 
@@ -464,17 +493,15 @@ container from Section 4 (this branch adds the overlay to it).
       close to its `expiresAt` to exercise `.expiringSoon`. Approve/deny only
       ever mutate the in-memory fixture — no real command is ever authorized
       to run anywhere. No network.
-- [ ] Extend `Domain/Repositories/DeviceFleetRepository.swift` (Section 7) with
-      `setProtectionEnabled(_:for:)`.
 - [ ] `UseCases/ReviewPermissionRequestUseCase.swift` — approve or deny.
   - [ ] Business rule: cannot act on a request that is already resolved
   - [ ] Business rule: cannot act on a request that has expired (auto-denied)
   - [ ] Typed error: `PermissionRequestError` (`.requestAlreadyResolved`, `.requestExpired`)
-- [ ] `UseCases/ToggleDeviceProtectionUseCase.swift`
-  - [ ] Business rule: cannot disable protection on a device that has
-        unresolved pending permission requests — the operator must resolve
-        them first rather than have them silently voided
-  - [ ] Typed error: `DeviceProtectionError.pendingRequestsMustBeResolvedFirst`
+- [ ] Extend `ToggleDevicePermissionsUseCase` (Section 7) with a business
+      rule: cannot turn permissions off for a device that has unresolved
+      pending permission requests — the operator must resolve them first
+      rather than have them silently voided. Add
+      `DevicePermissionsError.pendingRequestsMustBeResolvedFirst`.
 - [ ] `Presentation/ViewModels/PermissionRequestOverlayViewModel.swift` —
       root-scoped; observes the pending-request stream and, when more than one
       is outstanding, queues them (oldest first, one shown at a time).
@@ -483,16 +510,13 @@ container from Section 4 (this branch adds the overlay to it).
       colored countdown (`TIAGAColor.forPermissionUrgency`), Approve/Deny.
 - [ ] Wire the overlay into the Section 4 root container as a `ZStack`/`.overlay`
       so it renders above the active tab/screen regardless of route.
-- [ ] Add the protection `Toggle` to `DevicesView` rows, bound through
-      `DevicesViewModel` to `ToggleDeviceProtectionUseCase`.
 - [ ] Unit tests (`TIAGATests/ReviewPermissionRequestUseCaseTests.swift`,
-      `ToggleDeviceProtectionUseCaseTests.swift`):
+      extend `ToggleDevicePermissionsUseCaseTests.swift`):
   - [ ] `test_reviewPermissionRequest_approves_whenRequestIsPending`
   - [ ] `test_reviewPermissionRequest_denies_whenRequestIsPending`
   - [ ] `test_reviewPermissionRequest_fails_whenRequestAlreadyResolved`
   - [ ] `test_reviewPermissionRequest_fails_whenRequestHasExpired`
-  - [ ] `test_toggleDeviceProtection_enables_whenCurrentlyDisabled`
-  - [ ] `test_toggleDeviceProtection_fails_whenDisablingWithPendingRequestsOutstanding`
+  - [ ] `test_toggleDevicePermissions_fails_whenDisablingWithPendingRequestsOutstanding`
 
 ---
 

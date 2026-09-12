@@ -61,4 +61,13 @@ extension TIAGAIcon {
         case .error: return agentError
         }
     }
+
+    /// Maps a `DeviceType` to the symbol a fleet operator should see it as.
+    static func forDeviceType(_ type: DeviceType) -> String {
+        switch type {
+        case .mac: return deviceMacOS
+        case .windows: return deviceWindows
+        case .linux: return deviceLinux
+        }
+    }
 }
