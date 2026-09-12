@@ -141,12 +141,13 @@ What this means in practice:
 - `TIAGAAPIClient`/`TIAGAEventStream`/`SessionCookieStore` (Section 2) are
   the transport layer every `Remote*Repository` is built on.
 - **Building a `Remote*Repository` is its own, separate piece of work per
-  feature area** (Auth first, then whichever of Chat/Agent Chat/Devices/
-  Permissions/Settings gets picked up next) — this section records the
-  *decision*, not a claim that every `Remote*Repository` already exists.
-  Check TODO.md for which ones are actually built before assuming a screen
-  is live; as of this writing, none are — every repository still defaults
-  to `Fake*Repository` everywhere, unconditionally, exactly as before.
+  feature area** — this section records the *decision*, not a claim that
+  every `Remote*Repository` already exists. Check TODO.md for which ones
+  are actually built before assuming a screen is live. As of this writing:
+  `RemoteAuthSessionRepository` is done (Login, Waitlist Gate, session
+  restore, logout all talk to the real backend outside Previews); Chat,
+  Agent Chat, Devices, Permissions, and Settings still default to
+  `Fake*Repository` everywhere, unconditionally.
 - Unit tests are unaffected either way: every Use Case test runs against a
   purpose-built fake constructed directly in the test file, regardless of
   what the running app defaults to.
@@ -375,13 +376,22 @@ active plan), reusing `TIAGAColor.forContextUsage`'s 60%/85% thresholds
 rather than a second, divergent color rule. This was the last section in
 the original build plan — see `TODO.md` for each merged section's notes on
 what shipped differently from the original plan, and this file's own "Live
-backend" section above for what's deliberately still out of scope (no
-`Remote*Repository` yet, no MCP domain concept).
+backend" section above for what's deliberately still out of scope (no MCP
+domain concept).
 
-The live-backend policy above is current as of this writing, but no
-`Remote*Repository` has been built yet — every repository still defaults to
-`Fake*Repository` unconditionally, in Previews and the running app alike.
-Wiring up the first one (`RemoteAuthSessionRepository`) hasn't been started.
+Live-backend wiring is now underway: `RemoteAuthSessionRepository` talks to
+the real backend's `AuthController`/`RedeemController` outside Xcode
+Previews — Login, the Waitlist Gate, session restore on launch, and Log Out
+are all real against `https://tiaga.tech`. Every other repository
+(Chat/Agent Chat/Devices/Permissions/Settings) still defaults to
+`Fake*Repository` unconditionally; those are separate, not-yet-started
+pieces of work. One deliberate deviation from the web client: an `.active`,
+non-admin account with no subscription or credits (`hasAccess: false` on
+`/api/auth/me`) is NOT force-routed to a billing paywall the way the web
+client does — this app has no checkout flow to route to (Settings' Billing
+section is read-only, web-only by design), and Settings' Usage/Billing
+sections already surface "no active plan" gracefully, so the Fleet Console
+just stays reachable at zero usage budget instead.
 
 ## Assessment context (for reference — full spec given by the user)
 

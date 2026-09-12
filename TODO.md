@@ -1,6 +1,6 @@
 # TIAGA Mobile — Build Plan
 
-Working checklist for building the MVP. See `CLAUDE.md` for domain context and
+Working checklist for building the MVP. See `AGENTS.md` for domain context and
 architecture rules — this file is the ordered task list, that file is the why.
 
 ## Process (read before starting any section)
@@ -13,9 +13,9 @@ architecture rules — this file is the ordered task list, that file is the why.
 - [ ] Every domain model gets a DocC comment: what real-world entity/event it is, and the business rule(s) that govern it.
 - [ ] Every Use Case gets a typed domain error enum whose messages are written for the operator, not a developer — no "something went wrong".
 - [ ] Order below is dependency order (each section only needs what already landed) — do not reorder without checking what a later section assumes exists.
-- [ ] Before opening any PR touching UI: boot a simulator, build, install, launch, and screenshot each new/changed screen (`xcrun simctl io booted screenshot`) and actually look at it — see CLAUDE.md's Testing section for the exact commands. Then still include a manual visual-confirmation checklist in the test plan for whatever that static screenshot pass can't cover (interactive multi-step flows, final polish) — the user runs those, Claude doesn't.
-- [ ] Every repository defaults to `Fake*Repository` in Xcode Previews and `Remote*Repository` everywhere else (Simulator, device) — see CLAUDE.md's live-backend policy before building any repository implementation. TIAGA can dispatch real agents onto real machines, so once a feature area is wired live, manually exploring it on Simulator/device sends real chat messages, real approvals, real kills against a real account — be deliberate. (No `Remote*Repository` exists yet as of Section 6 — every repository still defaults to `Fake*Repository` unconditionally.)
-- [ ] Screenshot every screen a PR adds or changes (not just the launch screen — use a DEBUG route override per screen), commit them to `docs/screenshots/`, and embed them in the PR body as a grid (HTML table, width-capped `<img>`s) — see CLAUDE.md's Testing section for the exact URL form (this repo is private) and the before/after pattern for a PR that changes an existing screen's UI.
+- [ ] Before opening any PR touching UI: boot a simulator, build, install, launch, and screenshot each new/changed screen (`xcrun simctl io booted screenshot`) and actually look at it — see AGENTS.md's Testing section for the exact commands. Then still include a manual visual-confirmation checklist in the test plan for whatever that static screenshot pass can't cover (interactive multi-step flows, final polish) — the user runs those, Claude doesn't.
+- [ ] Every repository defaults to `Fake*Repository` in Xcode Previews and `Remote*Repository` everywhere else (Simulator, device) — see AGENTS.md's live-backend policy before building any repository implementation. TIAGA can dispatch real agents onto real machines, so once a feature area is wired live, manually exploring it on Simulator/device sends real chat messages, real approvals, real kills against a real account — be deliberate. (See the "Live Backend Wiring" section below for which `Remote*Repository` implementations actually exist.)
+- [ ] Screenshot every screen a PR adds or changes (not just the launch screen — use a DEBUG route override per screen), commit them to `docs/screenshots/`, and embed them in the PR body as a grid (HTML table, width-capped `<img>`s) — see AGENTS.md's Testing section for the exact URL form (this repo is private) and the before/after pattern for a PR that changes an existing screen's UI.
 - [ ] The moment the user says something merged: `git checkout main && git pull`, delete that branch locally (`git branch -d`), `git fetch --prune` — without being asked.
 
 ---
@@ -646,6 +646,59 @@ the original plan above were wrong or incomplete:
   - [x] `test_loadAccountUsage_fails_whenAccountIsUnreachable`
   - [x] `test_updatePrivacyPreference_succeeds_whenOnline`
   - [x] `test_updatePrivacyPreference_fails_whenOffline`
+
+---
+
+## 10. Live Backend Wiring — one `Remote*Repository` at a time
+
+Not a numbered feature section with its own single branch — each repository
+below is its own small, independently-mergeable PR (`feature/remote-<area>`),
+checked against the real backend's actual endpoints the same way every prior
+section was. See AGENTS.md's "Live backend" policy for the Preview-vs-
+everywhere-else selection rule every `Remote*Repository` follows.
+
+- [x] `RemoteAuthSessionRepository` (`AuthController`/`RedeemController`) —
+      login, session restore (`GET /api/auth/me`, checked against
+      `SessionCookieStore.hasSessionCookie` first to skip the network call
+      when there's obviously no session), logout, invite code redemption.
+      **Revision (checked `AuthController.cs`/`RedeemController.cs`/
+      `Program.cs`'s rate limiter directly):** `/api/redeem`'s response is
+      just `{ ok, message }` — it doesn't return the updated account, so
+      `redeemInviteCode` re-fetches `/api/auth/me` after a successful
+      redeem to pick up the new `.active` status. Login's rate limiting is
+      HTTP 429 from ASP.NET's rate limiter middleware (`{error: "Too many
+      attempts..."}`), not a custom error field — mapped from the status
+      code, not the message text. **Logout order matters**: the real
+      session-invalidation call must go out *with* the session cookie still
+      attached (so the backend can find and delete that exact session
+      row) — clearing local cookie storage before the request would send
+      the logout call with no cookie at all, leaving the session valid
+      server-side for its full 180-day sliding expiry. `defer` clears the
+      cookie after the call regardless of outcome. **Deliberate deviation
+      from the web client**: `/api/auth/me`'s `hasAccess` field (real
+      subscription or credits) is fetched but intentionally unused — the
+      web force-routes an `.active`, non-admin, `hasAccess: false` account
+      to a billing paywall on login, but this app has no checkout flow to
+      route to (Billing is read-only, web-only by design), so that account
+      just reaches the Fleet Console with Settings already showing "no
+      active plan."
+- [ ] `RemoteAgentRosterRepository` / `RemoteAgentConversationRepository` /
+      `RemoteOrchestratorConversationRepository` (Chat + Agent Chat) — the
+      highest-stakes area to wire live: a real message sent from this app
+      reaches a real LLM (real cost) and, if it dispatches a tool call, a
+      real agent doing real things on a real machine. Needs `TIAGAEventStream`
+      for streaming tokens/tool events, not just request/response.
+- [ ] `RemoteDeviceFleetRepository` (Devices) — device list + online
+      presence (likely via `TIAGAEventStream`, not polling) + the
+      permissions-required toggle.
+- [ ] `RemotePermissionRequestRepository` (Permissions) — the pending-
+      requests stream (`TIAGAEventStream`) + approve/deny. Real approval
+      overlay, real consequences: an approval here lets a real tool call
+      proceed on a real machine.
+- [ ] `RemoteAccountRepository` (Settings) — usage/plan (`GET /api/billing`)
+      + privacy preference (`GET`/`POST /api/privacy`, remembering the wire
+      field is inverted — `trainingOptOut`, not `improveAIEnabled`; see
+      `PrivacyPreference`'s doc comment).
 
 ---
 
