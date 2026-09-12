@@ -702,10 +702,26 @@ everywhere-else selection rule every `Remote*Repository` follows.
       a reusable multiplexer once, when there's a second real consumer, beats
       guessing at its shape now for a single one. Added `TIAGAAPIClient.put`
       (PUT was the only missing HTTP method) for the toggle endpoint.
-- [ ] `RemotePermissionRequestRepository` (Permissions) — the pending-
-      requests stream (`TIAGAEventStream`) + approve/deny. Real approval
+- [x] `RemotePermissionRequestRepository` (Permissions) — the pending-
+      requests snapshot (`GET /api/permissions`, restoring anything already
+      pending when the app connects) + live `request`/`resolved` events off
+      the new shared `RemoteEventBus` (`Data/API/RemoteEventBus.swift`,
+      multiplexing `/api/events` by its `type` field for any repository that
+      needs live push — Devices intentionally skipped this since nothing
+      there consumes a stream; Permissions is the first real consumer) +
+      approve/deny via `POST /api/permissions/{id}/resolve`. Real approval
       overlay, real consequences: an approval here lets a real tool call
-      proceed on a real machine.
+      proceed on a real machine. **Revision (checked `PermissionsController.cs`/
+      `PermissionManager.cs` directly):** `Resolve(id, approved)` silently
+      no-ops (still `200 {"ok":true}`) if `id` isn't pending anymore — the
+      real backend never signals "already resolved" as an HTTP error the
+      way `ReviewPermissionRequestUseCase`'s business rule assumes. That
+      rule was modeled against `FakePermissionRequestRepository`'s behavior,
+      not verified against the real backend at the time (Section 8). Left
+      as-is: the overlay only ever shows one request at a time and moves on
+      once it's gone, so the scenario the rule guards against essentially
+      can't happen through this app's own UI — noted here so a future
+      session doesn't rediscover this from scratch.
 - [ ] `RemoteAccountRepository` (Settings) — usage/plan (`GET /api/billing`)
       + privacy preference (`GET`/`POST /api/privacy`, remembering the wire
       field is inverted — `trainingOptOut`, not `improveAIEnabled`; see
