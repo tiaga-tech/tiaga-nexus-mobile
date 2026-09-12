@@ -6,9 +6,10 @@
 import SwiftUI
 
 /// The operator's fleet: one row per device — OS icon, name, online/offline
-/// status, and a tappable pill to switch approval-gating on/off for
-/// sensitive tools (matching the real web client's `permissions on`/`auto`
-/// pill in `DevicesPane.tsx`, worded here as "Permissions: On"/"Off").
+/// status, and a native switch for whether sensitive tools on that device
+/// require approval (the real web client uses a custom tappable pill for
+/// this in `DevicesPane.tsx`; a native `Toggle` is the right iOS-native
+/// equivalent of the same control, not a literal pixel match).
 struct DevicesView: View {
     @StateObject private var viewModel = DevicesViewModel()
 
@@ -60,38 +61,32 @@ private struct DeviceRow: View {
 
     var body: some View {
         TIAGACard {
-            HStack(spacing: TIAGASpacing.md) {
-                Image(systemName: TIAGAIcon.forDeviceType(device.type))
-                    .foregroundStyle(device.isOnline ? TIAGAColor.textPrimary : TIAGAColor.textTertiary)
-                    .frame(width: 24)
+            VStack(spacing: TIAGASpacing.sm) {
+                HStack(spacing: TIAGASpacing.md) {
+                    Image(systemName: TIAGAIcon.forDeviceType(device.type))
+                        .foregroundStyle(device.isOnline ? TIAGAColor.textPrimary : TIAGAColor.textTertiary)
+                        .frame(width: 24)
 
-                VStack(alignment: .leading, spacing: TIAGASpacing.xs) {
                     Text(device.name)
                         .font(TIAGATypography.body)
                         .foregroundStyle(device.isOnline ? TIAGAColor.textPrimary : TIAGAColor.textTertiary)
 
-                    Button(action: onTogglePermissions) {
-                        HStack(spacing: TIAGASpacing.xs) {
-                            Circle()
-                                .fill(device.permissionsRequired ? TIAGAColor.statusSuccess : TIAGAColor.statusWarning)
-                                .frame(width: 6, height: 6)
-                            Text("Permissions: \(device.permissionsRequired ? "On" : "Off")")
-                                .font(TIAGATypography.caption)
-                                .foregroundStyle(device.permissionsRequired ? TIAGAColor.statusSuccess : TIAGAColor.statusWarning)
-                        }
-                        .padding(.horizontal, TIAGASpacing.sm)
-                        .padding(.vertical, TIAGASpacing.xs)
-                        .background(
-                            (device.permissionsRequired ? TIAGAColor.statusSuccess : TIAGAColor.statusWarning).opacity(0.15)
-                        )
-                        .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
+                    Spacer(minLength: TIAGASpacing.sm)
+
+                    StatusPill(isOnline: device.isOnline)
                 }
 
-                Spacer(minLength: TIAGASpacing.sm)
+                Divider().overlay(TIAGAColor.border)
 
-                StatusPill(isOnline: device.isOnline)
+                Toggle(isOn: Binding(
+                    get: { device.permissionsRequired },
+                    set: { _ in onTogglePermissions() }
+                )) {
+                    Text("Permissions required")
+                        .font(TIAGATypography.subheadline)
+                        .foregroundStyle(TIAGAColor.textSecondary)
+                }
+                .tint(TIAGAColor.brandAccent)
             }
         }
     }
