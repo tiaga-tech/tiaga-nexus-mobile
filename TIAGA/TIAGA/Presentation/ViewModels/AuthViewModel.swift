@@ -31,12 +31,18 @@ final class AuthViewModel: ObservableObject {
     private let redeemInviteCodeUseCase: RedeemInviteCodeUseCase
     private let logoutUseCase: LogoutUseCase
 
-    init(repository: AuthSessionRepository = FakeAuthSessionRepository()) {
-        self.repository = repository
-        self.restoreSessionUseCase = RestoreSessionUseCase(repository: repository)
-        self.loginUseCase = LoginUseCase(repository: repository)
-        self.redeemInviteCodeUseCase = RedeemInviteCodeUseCase(repository: repository)
-        self.logoutUseCase = LogoutUseCase(repository: repository)
+    init(repository: AuthSessionRepository? = nil) {
+        // Fake*Repository only inside Xcode Previews — everywhere else
+        // (Simulator or a real device) talks to the real backend. See
+        // AGENTS.md's "Live backend" policy.
+        let resolvedRepository = repository ?? (
+            ProcessInfo.isRunningInXcodePreview ? FakeAuthSessionRepository() : RemoteAuthSessionRepository()
+        )
+        self.repository = resolvedRepository
+        self.restoreSessionUseCase = RestoreSessionUseCase(repository: resolvedRepository)
+        self.loginUseCase = LoginUseCase(repository: resolvedRepository)
+        self.redeemInviteCodeUseCase = RedeemInviteCodeUseCase(repository: resolvedRepository)
+        self.logoutUseCase = LogoutUseCase(repository: resolvedRepository)
     }
 
     func start() async {
