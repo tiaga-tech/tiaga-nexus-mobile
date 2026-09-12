@@ -38,21 +38,28 @@ final class FakePermissionRequestRepository: PermissionRequestRepository, @unche
                 kind: .edit,
                 // The edit tool's real payload is `files: [{ path, edits }]`
                 // — more than one file can be edited in a single tool call/
-                // permission request. When there's more than one,
-                // PermissionManager.cs's DescribeEdit uses "{count} files"
-                // as the label instead of a single path — matched exactly
-                // here rather than inventing a different label format.
-                file: "2 files",
-                // Matches DescribeEdit's own detail-building exactly: each
-                // edit becomes "- {old}\n+ {new}\n" (only the first line of
-                // a multi-line old/new gets the "-"/"+" prefix —
-                // continuation lines render unprefixed, a real quirk of the
-                // backend's plain string interpolation, not a diff
-                // formatter), and a blank line separates each file's edits.
-                // The first file's edit is a genuine multi-line block
-                // replacement (not just a couple of one-line swaps), and
-                // the second file demonstrates the multi-file case.
+                // permission request, and a single file's `edits` array can
+                // itself hold more than one hunk (non-contiguous sections of
+                // the same file changing together, e.g. an import line and
+                // an unrelated block further down). When there's more than
+                // one file, PermissionManager.cs's DescribeEdit uses
+                // "{count} files" as the label instead of a single path —
+                // matched exactly here. Five files (one long enough to force
+                // truncation) also exercises the tab row's horizontal
+                // scroll, which the web client's own `overflow-x-auto` tab
+                // bar needs for the same reason.
+                file: "5 files",
+                // `detail` matches DescribeEdit's own text-building exactly
+                // (only the first line of a multi-line old/new gets the
+                // "-"/"+" prefix — continuation lines render unprefixed, a
+                // quirk of the backend's plain string interpolation). Kept
+                // here for wire fidelity, but the app doesn't render this
+                // flattened text for `.edit` — it builds the diff view from
+                // `files` below via `PermissionEditDiff`, matching the web
+                // client's own `DiffView.tsx`, which does the same.
                 detail: """
+                - import { useState } from 'react'
+                + import { useState, useEffect } from 'react'
                 - const config = {
                   theme: 'light',
                   debug: false,
@@ -66,11 +73,29 @@ final class FakePermissionRequestRepository: PermissionRequestRepository, @unche
 
                 - export const VERSION = '1.0.0'
                 + export const VERSION = '1.1.0'
+
+                - const [messages, setMessages] = useState<Message[]>([])
+                + const [messages, setMessages] = useState<Message[]>(initialMessages)
+
+                - className="flex flex-col gap-2"
+                + className="flex flex-col gap-3"
+
+                - md: 'markdown', sql: 'sql',
+                + md: 'markdown', sql: 'sql', dockerfile: 'dockerfile',
                 """,
                 files: [
                     PermissionRequestFile(
                         path: "web/src/App.tsx",
+                        // Two non-contiguous edits in the same file — the
+                        // import line and the config block are unrelated
+                        // sections, not one continuous hunk. Exercises
+                        // `PermissionEditFilesView` rendering more than one
+                        // diff block stacked under a single file tab.
                         edits: [
+                            PermissionRequestEdit(
+                                old: "import { useState } from 'react'",
+                                new: "import { useState, useEffect } from 'react'"
+                            ),
                             PermissionRequestEdit(
                                 old: "const config = {\n  theme: 'light',\n  debug: false,\n  timeout: 3000\n}",
                                 new: "const config = {\n  theme: 'dark',\n  debug: true,\n  timeout: 5000\n}"
@@ -81,6 +106,33 @@ final class FakePermissionRequestRepository: PermissionRequestRepository, @unche
                         path: "web/src/utils.ts",
                         edits: [
                             PermissionRequestEdit(old: "export const VERSION = '1.0.0'", new: "export const VERSION = '1.1.0'"),
+                        ]
+                    ),
+                    PermissionRequestFile(
+                        path: "web/src/hooks/useConversation.ts",
+                        edits: [
+                            PermissionRequestEdit(
+                                old: "const [messages, setMessages] = useState<Message[]>([])",
+                                new: "const [messages, setMessages] = useState<Message[]>(initialMessages)"
+                            ),
+                        ]
+                    ),
+                    PermissionRequestFile(
+                        path: "web/src/components/MessageList.tsx",
+                        edits: [
+                            PermissionRequestEdit(
+                                old: "className=\"flex flex-col gap-2\"",
+                                new: "className=\"flex flex-col gap-3\""
+                            ),
+                        ]
+                    ),
+                    PermissionRequestFile(
+                        path: "web/src/lib/highlight.ts",
+                        edits: [
+                            PermissionRequestEdit(
+                                old: "md: 'markdown', sql: 'sql',",
+                                new: "md: 'markdown', sql: 'sql', dockerfile: 'dockerfile',"
+                            ),
                         ]
                     ),
                 ]

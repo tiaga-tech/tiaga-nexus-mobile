@@ -55,14 +55,8 @@ struct PermissionRequestOverlayView: View {
                     .foregroundStyle(TIAGAColor.textSecondary)
             }
 
-            HighlightedCodeView(
-                code: request.detail,
-                language: detailHighlightLanguage(for: request),
-                isScrollable: true
-            )
-            .frame(maxWidth: .infinity, maxHeight: 200, alignment: .leading)
-            .background(TIAGAColor.surfaceElevated)
-            .clipShape(RoundedRectangle(cornerRadius: TIAGARadius.sm, style: .continuous))
+            detailSection(for: request)
+                .frame(maxWidth: .infinity, maxHeight: 260, alignment: .leading)
 
             if let message = viewModel.errorMessage {
                 Text(message)
@@ -93,19 +87,36 @@ struct PermissionRequestOverlayView: View {
         )
     }
 
-    /// Which vendored highlight.js grammar best renders `detail`, matching
-    /// how the real backend actually shapes each kind (`PermissionManager.cs`'s
-    /// `Describe`): `.command` is a shell invocation, `.edit`'s `detail` is
-    /// already diff-formatted text ("- old\n+ new" lines — this is what
-    /// actually gives the red/green backgrounds, not a custom diff view),
-    /// and `.write`'s `detail` is a full new file's content, best
-    /// highlighted by its extension since the tool itself carries no
-    /// explicit language.
-    private func detailHighlightLanguage(for request: PermissionRequest) -> String {
+    /// `.edit` renders per-file tabs + a file-path label + line-level diffs
+    /// (see `PermissionEditFilesView`) from `files`, matching the web
+    /// client's `EditReview`/`FileLabel` — not the backend's flattened
+    /// `detail` string, which only prefixes the first line of a multi-line
+    /// change (a quirk of `PermissionManager.cs`'s own string
+    /// concatenation, not what the web client's interactive overlay
+    /// actually renders). `.command` is a shell invocation; `.write`'s
+    /// `detail` is a full new file's content, best highlighted by its
+    /// extension since the tool itself carries no explicit language.
+    @ViewBuilder
+    private func detailSection(for request: PermissionRequest) -> some View {
+        if request.kind == .edit, let files = request.files, !files.isEmpty {
+            PermissionEditFilesView(files: files)
+                .id(request.id)
+        } else {
+            let (code, language) = fallbackDetailContent(for: request)
+            HighlightedCodeView(code: code, language: language, isScrollable: true)
+                .background(TIAGAColor.surfaceElevated)
+                .clipShape(RoundedRectangle(cornerRadius: TIAGARadius.sm, style: .continuous))
+        }
+    }
+
+    private func fallbackDetailContent(for request: PermissionRequest) -> (code: String, language: String) {
         switch request.kind {
-        case .command: return "bash"
-        case .edit: return "diff"
-        case .write: return Self.language(forFileExtension: request.file)
+        case .command:
+            return (request.detail, "bash")
+        case .write:
+            return (request.detail, Self.language(forFileExtension: request.file))
+        case .edit:
+            return (request.detail, "diff")
         }
     }
 
