@@ -33,4 +33,8 @@ enum TIAGATypography {
     /// The exact shell command or diff shown on a permission approval card —
     /// monospaced so an operator can read it precisely before approving.
     static let command = Font.system(.body, design: .monospaced, weight: .regular)
+
+    /// A file path label or per-file tab — monospaced like `command`, but at
+    /// caption size since it's metadata about the code, not the code itself.
+    static let commandCaption = Font.system(.caption, design: .monospaced, weight: .regular)
 }

@@ -63,3 +63,16 @@ struct HighlightedCodeView: View {
             .frame(minHeight: 90)
     }
 }
+
+extension HighlightedCodeView {
+    /// Estimated height for `lineCount` lines at this view's own template
+    /// metrics (13px font, 1.55 line-height, 12px padding top and bottom).
+    /// `VendoredWebView`'s `WKWebView` doesn't report its own content
+    /// height back to SwiftUI, so a non-scrollable code block (e.g. one of
+    /// several stacked in an outer `ScrollView`, as in
+    /// `PermissionEditFilesView`) needs an explicit frame height or it gets
+    /// clipped to whatever `minHeight` the caller happens to pass.
+    static func estimatedHeight(forLineCount lineCount: Int) -> CGFloat {
+        CGFloat(lineCount) * 20.15 + 24
+    }
+}

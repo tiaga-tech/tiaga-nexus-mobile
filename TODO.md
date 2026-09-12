@@ -472,51 +472,79 @@ plan:
 **Revision (from Section 7):** the per-device permissions toggle and
 `ToggleDevicePermissionsUseCase` already exist — Section 7 found the real
 product has this live in the device row, not deferred here, and built it
-there. This section now only adds the approval pop-up, plus one more
-business rule on top of the existing toggle use case.
+there.
+
+**Revision (checked `PermissionManager.cs`/`usePermissions.ts`/`api.ts`
+directly before building this section):** two more assumptions in the
+original plan turned out to be fictional, both traced to
+`PermissionRequestUrgency` having been scaffolded in Section 1 without ever
+being checked against the real backend:
+- **There is no timeout, no auto-deny, no urgency/countdown concept at
+  all.** Direct quote from `PermissionManager.cs`: *"No time limit — a
+  request waits until the user explicitly approves or denies it (the
+  overlay is non-dismissable, so it can't be silently lost)."* It only
+  resolves without an explicit answer if the underlying call is cancelled
+  (an agent/turn stop), and that's treated as a cancellation, not a denial.
+  Removed `PermissionRequestUrgency.swift` and
+  `TIAGAColor.forPermissionUrgency(_:)` entirely, and corrected the
+  `PermissionRequest` domain-noun description in CLAUDE.md (it claimed the
+  same 5-minute auto-deny). No countdown UI; the overlay has no dismiss
+  gesture (not a scrim-tap-to-close, not a sheet) so it can only close via
+  Approve/Deny, matching "non-dismissable" for free.
+- **Toggling a device's permissions is unconditional on the real
+  product** — `DeviceManager.cs`'s `Update` sets `PermissionsRequired`
+  with no guard against pending requests anywhere. The planned
+  "can't disable while pending requests exist" business rule doesn't
+  exist; `ToggleDevicePermissionsUseCase` needs no changes this section.
+
+The real wire shape (`usePermissions.ts`'s `PermissionRequest` interface +
+`PermissionManager.cs`'s `PendingPermission` record) is also different from
+what was planned: `requester` is a **plain display string** ("TIAGA" for
+the orchestrator itself, or an agent's name) — not an `AgentIdentifier`
+reference, since the backend never resolves it against a roster either.
+`deviceName` is sent directly alongside `deviceId` (no client-side join
+needed — same lesson as Section 7's retracted agents-per-device join).
+`kind` (`command`/`write`/`edit`) is a separate field from `tool` (the
+literal tool name). Structured per-file `edits` exist on the wire (for a
+real diff view) but this pass only renders the backend's own flattened
+`detail` text (already diff-formatted for `edit`) — `PermissionRequestFile`
+models the structured data for fidelity without building a tabbed diff UI
+yet. MCP-originated requests (`kind: "mcp"`, no real device) are out of
+scope — no MCP domain concept exists in this app.
 
 Depends on `Agent` (Section 4), `Device` (Section 7), and the root navigation
 container from Section 4 (this branch adds the overlay to it).
 
-- [ ] `Domain/Models/PermissionRequest.swift` — id, `AgentIdentifier`,
-      `DeviceIdentifier`, tool name (`bash`/`write`/`edit`/`run_app`/`kill_process`),
-      command-or-diff preview text, requestedAt, expiresAt. DocC: real-world
-      event = a protected device blocking a sensitive tool call until a human
-      approves it; rule = auto-denied if unanswered for 5 minutes. Exposes a
-      computed `urgency: PermissionRequestUrgency` (already scaffolded) from
-      `expiresAt`.
+- [ ] `Domain/Models/PermissionRequest.swift` — id (`String`, matching the
+      backend's opaque id), `DeviceIdentifier`, `deviceName`, `requester`
+      (`String`), `tool`, `kind` (`PermissionRequestKind`: `.command`/
+      `.write`/`.edit`), `file` (optional), `detail`, `files`
+      (optional `[PermissionRequestFile]` for a future diff view). DocC:
+      real-world event = the orchestrator or an agent on a protected device
+      blocking a sensitive tool call until a human decides; rule = no
+      timeout, waits indefinitely (see revision note above).
 - [ ] `Domain/Repositories/PermissionRequestRepository.swift` (protocol) —
       observe the live stream of pending requests app-wide, `approve(_:)`, `deny(_:)`.
 - [ ] `Data/Repositories/FakePermissionRequestRepository.swift` — fixture
-      requests with a realistic (fabricated, harmless) command/diff sample so
-      the approval UI's visual weight is genuinely exercised, plus one request
-      close to its `expiresAt` to exercise `.expiringSoon`. Approve/deny only
-      ever mutate the in-memory fixture — no real command is ever authorized
-      to run anywhere. No network.
+      requests with a realistic (fabricated, harmless) command and edit
+      sample so the approval UI's visual weight is genuinely exercised.
+      Approve/deny only ever mutate the in-memory fixture — no real command
+      is ever authorized to run anywhere. No network.
 - [ ] `UseCases/ReviewPermissionRequestUseCase.swift` — approve or deny.
   - [ ] Business rule: cannot act on a request that is already resolved
-  - [ ] Business rule: cannot act on a request that has expired (auto-denied)
-  - [ ] Typed error: `PermissionRequestError` (`.requestAlreadyResolved`, `.requestExpired`)
-- [ ] Extend `ToggleDevicePermissionsUseCase` (Section 7) with a business
-      rule: cannot turn permissions off for a device that has unresolved
-      pending permission requests — the operator must resolve them first
-      rather than have them silently voided. Add
-      `DevicePermissionsError.pendingRequestsMustBeResolvedFirst`.
+  - [ ] Typed error: `PermissionRequestError.requestAlreadyResolved`
 - [ ] `Presentation/ViewModels/PermissionRequestOverlayViewModel.swift` —
       root-scoped; observes the pending-request stream and, when more than one
       is outstanding, queues them (oldest first, one shown at a time).
 - [ ] `Presentation/Views/Permissions/PermissionRequestOverlayView.swift` —
-      device, agent, tool, command/diff (`TIAGATypography.command`), urgency-
-      colored countdown (`TIAGAColor.forPermissionUrgency`), Approve/Deny.
+      device, requester, tool, `detail` (`TIAGATypography.command`),
+      Approve/Deny. No dismiss gesture of any kind.
 - [ ] Wire the overlay into the Section 4 root container as a `ZStack`/`.overlay`
       so it renders above the active tab/screen regardless of route.
-- [ ] Unit tests (`TIAGATests/ReviewPermissionRequestUseCaseTests.swift`,
-      extend `ToggleDevicePermissionsUseCaseTests.swift`):
+- [ ] Unit tests (`TIAGATests/ReviewPermissionRequestUseCaseTests.swift`):
   - [ ] `test_reviewPermissionRequest_approves_whenRequestIsPending`
   - [ ] `test_reviewPermissionRequest_denies_whenRequestIsPending`
   - [ ] `test_reviewPermissionRequest_fails_whenRequestAlreadyResolved`
-  - [ ] `test_reviewPermissionRequest_fails_whenRequestHasExpired`
-  - [ ] `test_toggleDevicePermissions_fails_whenDisablingWithPendingRequestsOutstanding`
 
 ---
 

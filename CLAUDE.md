@@ -49,10 +49,17 @@ generic invented domain, and it is not a demo backend either.
   - **Agent** — a named, persistent AI worker pinned to one device at spawn.
     Has a state (`idle` / `running` / `compacting` / `error`), its own chat
     history, and a report of its last task. See `AgentState`.
-  - **PermissionRequest** — an approval prompt raised when an agent on a
-    protected device wants to run a sensitive tool (`bash`, `write`, `edit`,
-    `run_app`, `kill_process`). Shows the exact command or an old/new diff.
-    Auto-denies if unanswered for 5 minutes. See `PermissionRequestUrgency`.
+  - **PermissionRequest** — an approval prompt raised when the orchestrator
+    or an agent on a protected device wants to run a sensitive tool (`bash`,
+    `write`, `edit`, `run_app`, `kill_process`). Shows the exact command or
+    an old/new diff. **No timeout**: the real backend's `PermissionManager`
+    blocks the call indefinitely until the operator explicitly approves or
+    denies it — the approval overlay is non-dismissable so it can never be
+    silently lost. (An earlier version of this file claimed a 5-minute
+    auto-deny; that was never checked against the real backend and doesn't
+    exist — confirmed directly against `PermissionManager.cs` while building
+    Section 8. There is no `PermissionRequestUrgency` type for the same
+    reason.)
   - **ManagedProcess** — a long-running command the harness promoted to a
     tracked background process (pid, start time, exit code) on a device.
     Can be killed remotely.
@@ -355,12 +362,15 @@ current branch's blob for "after", in the same grid table:
 
 ## Current status
 
-Sections 1–6 (Design System, API Layer, Auth, Side Menu, Chat, Agent Chat)
-are merged to `main`, plus a follow-up unifying `ChatMessage`'s domain
-shape with the real backend's. Next up: Section 7, Devices. See `TODO.md`
-for the ordered, checkbox-tracked build plan (one feature branch at a time,
-merged to `main` before the next starts) and each merged section's notes on
-what shipped differently from the original plan.
+Sections 1–7 (Design System, API Layer, Auth, Side Menu, Chat, Agent Chat,
+Devices) are merged to `main`, plus a follow-up unifying `ChatMessage`'s
+domain shape with the real backend's. Next up: Section 8, Permissions —
+which now only adds the approval pop-up and one business rule on top of
+`ToggleDevicePermissionsUseCase` (built early, in Section 7, since the real
+product has that toggle live in the device row, not deferred). See
+`TODO.md` for the ordered, checkbox-tracked build plan (one feature branch
+at a time, merged to `main` before the next starts) and each merged
+section's notes on what shipped differently from the original plan.
 
 The live-backend policy above is current as of this writing, but no
 `Remote*Repository` has been built yet — every repository still defaults to
