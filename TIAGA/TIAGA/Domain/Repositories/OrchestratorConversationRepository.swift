@@ -15,9 +15,8 @@ protocol OrchestratorConversationRepository {
     /// exercised. Throws `SendChatMessageError` on failure.
     func send(_ text: String, to target: ConversationTarget) async throws
 
-    /// The live transcript (messages + tool-usage events merged
-    /// chronologically).
-    func observeTranscript() -> AsyncStream<[TranscriptEntry]>
+    /// The live transcript, chronologically ordered.
+    func observeTranscript() -> AsyncStream<[ChatMessage]>
 
     /// The live context-usage fraction, clamped to 0...1.
     func observeContextUsage() -> AsyncStream<ConversationContextUsage>

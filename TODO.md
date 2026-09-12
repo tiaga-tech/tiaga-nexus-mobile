@@ -262,6 +262,37 @@ Pointer Events in WKWebView, and pinch was wheel-event-only); panning down
 in the fullscreen diagram triggering the sheet's own swipe-to-dismiss. See
 git history on `main` for the individual fix commits.
 
+**Revision (`feature/message-kind-unification`, after Section 6 merged):**
+`ToolUsageEvent` (a domain type of its own) and `TranscriptEntry`/
+`TranscriptMerger` (a wrapper enum + merge function over two separate arrays)
+were a simplification that turned out not to match the real backend/web
+contract. Checked `tiaga-nexus/web/src/types.ts` + `MessageList.tsx` +
+`AgentChatWindow.tsx` directly: the real `Message` type is `{ role, kind?,
+text }` — tool usage and errors are the *same* message type as a normal
+reply, just with `kind: 'tool'` / `kind: 'error'` instead of `'voice'` (plus
+`'context'`/`'task'`/`'ui'`). There is no separate tool-usage domain type on
+the real product at all. Retired `ToolUsageEvent` and `TranscriptEntry`/
+`TranscriptMerger` entirely; `ChatMessage` now carries a `kind:
+ChatMessageKind` field (`.voice`/`.tool`/`.context`/`.task`/`.ui`/`.error`),
+and both conversation repositories return `[ChatMessage]` directly — no
+merging needed since there's only one array now. `TranscriptRow` initially
+labeled each kind with a colored dot for Chat specifically (matching
+`MessageList.tsx`'s richer `KIND_STYLES`), while Agent Chat kept its
+existing plain style (matching `AgentChatWindow.tsx`, whose simpler
+`role`-only wire format has no separate kind at all — tool/error are just
+additional `role` values there) — that per-screen difference was reverted
+per feedback, and both screens now render identically with the original
+plain style (no labels, `.tool` as a dim monospace line, `.error` as an
+unlabeled red bordered bubble). `ChatMessage.kind` itself stays — it's still
+what picks the bubble style — only the extra label UI is gone. This also
+fixed the original ask that prompted the discovery: an agent's `.error`
+state now shows as an error-kind message in its own transcript (matching
+the web), not just a status pill — and the orchestrator's own conversation
+can carry an error message too, not only an agent's. `.context`/`.task`/
+`.ui` are modeled but not yet exercised by any fixture. Removed
+`TranscriptMergerTests.swift` (the function it tested no longer exists —
+sorting one array by `sentAt` is a one-liner, not separately unit-tested).
+
 - [x] `Domain/Models/ChatMessage.swift` — id, role (`.operator` / `.orchestrator`),
       text, sentAt.
 - [x] `Domain/Models/ToolUsageEvent.swift` — tool name, target device (optional),

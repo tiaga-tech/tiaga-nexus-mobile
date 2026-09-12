@@ -11,7 +11,7 @@ import SwiftUI
 /// context usage, send/reset, and dynamic-card history.
 @MainActor
 final class ChatViewModel: ObservableObject {
-    @Published private(set) var transcript: [TranscriptEntry] = []
+    @Published private(set) var transcript: [ChatMessage] = []
     @Published private(set) var contextUsage = ConversationContextUsage(fraction: 0)
     @Published private(set) var isStreaming = false
     @Published private(set) var sendErrorMessage: String?

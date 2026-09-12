@@ -19,7 +19,7 @@ private final class StubConversationRepository: OrchestratorConversationReposito
         sentTargets.append(target)
     }
 
-    func observeTranscript() -> AsyncStream<[TranscriptEntry]> {
+    func observeTranscript() -> AsyncStream<[ChatMessage]> {
         AsyncStream { $0.finish() }
     }
 
@@ -63,7 +63,7 @@ private final class StubAgentConversationRepository: AgentConversationRepository
         sentAgentIDs.append(agentID)
     }
 
-    func observeTranscript(for agentID: AgentIdentifier) -> AsyncStream<[TranscriptEntry]> {
+    func observeTranscript(for agentID: AgentIdentifier) -> AsyncStream<[ChatMessage]> {
         AsyncStream { $0.finish() }
     }
 }

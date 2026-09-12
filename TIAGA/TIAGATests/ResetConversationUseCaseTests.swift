@@ -15,7 +15,7 @@ private final class StubResetConversationRepository: OrchestratorConversationRep
 
     func send(_ text: String, to target: ConversationTarget) async throws {}
 
-    func observeTranscript() -> AsyncStream<[TranscriptEntry]> {
+    func observeTranscript() -> AsyncStream<[ChatMessage]> {
         AsyncStream { $0.finish() }
     }
 

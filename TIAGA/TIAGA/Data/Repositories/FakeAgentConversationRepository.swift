@@ -10,9 +10,11 @@ import Foundation
 /// "Testing safety: no live backend" policy.
 ///
 /// Each agent's conversation is created on first touch (starting empty) and
-/// kept independently of every other agent's — Atlas is pre-seeded with a
-/// short realistic exchange so the screen has something to look at while
-/// exploring the simulator.
+/// kept independently of every other agent's. Atlas is pre-seeded with a
+/// short realistic exchange, and Vega (fixture-errored in
+/// `FakeAgentRosterRepository`) is pre-seeded with the error message that
+/// explains why — matching the real web client, where an agent's error
+/// shows as a message in its own transcript, not just a status pill.
 final class FakeAgentConversationRepository: AgentConversationRepository, @unchecked Sendable {
 
     /// How long a fake reply takes to "arrive" before it appears.
@@ -20,14 +22,14 @@ final class FakeAgentConversationRepository: AgentConversationRepository, @unche
 
     private let lock = NSLock()
     private var messagesByAgent: [AgentIdentifier: [ChatMessage]]
-    private var toolUsageByAgent: [AgentIdentifier: [ToolUsageEvent]]
-    private var continuations: [UUID: (AgentIdentifier, AsyncStream<[TranscriptEntry]>.Continuation)] = [:]
+    private var continuations: [UUID: (AgentIdentifier, AsyncStream<[ChatMessage]>.Continuation)] = [:]
 
     init(responseDelayNanoseconds: UInt64 = 250_000_000) {
         self.responseDelayNanoseconds = responseDelayNanoseconds
 
         let now = Date()
         let atlas = AgentIdentifier(rawValue: "agent-atlas")
+        let vega = AgentIdentifier(rawValue: "agent-vega")
         messagesByAgent = [
             atlas: [
                 ChatMessage(
@@ -42,18 +44,28 @@ final class FakeAgentConversationRepository: AgentConversationRepository, @unche
                 ),
                 ChatMessage(
                     role: .orchestrator,
+                    kind: .tool,
+                    text: "edit web/src/App.tsx",
+                    sentAt: now.addingTimeInterval(-100)
+                ),
+                ChatMessage(
+                    role: .orchestrator,
                     text: "Done — swapped it in and re-ran the build. Still green.",
                     sentAt: now.addingTimeInterval(-90)
                 ),
             ],
-        ]
-        toolUsageByAgent = [
-            atlas: [
-                ToolUsageEvent(
-                    toolName: "edit",
-                    targetDevice: DeviceIdentifier(rawValue: "device-home-pc"),
-                    summary: "edit web/src/App.tsx",
-                    occurredAt: now.addingTimeInterval(-100)
+            vega: [
+                ChatMessage(
+                    role: .orchestrator,
+                    kind: .tool,
+                    text: "bash: npm run build",
+                    sentAt: now.addingTimeInterval(-3660)
+                ),
+                ChatMessage(
+                    role: .orchestrator,
+                    kind: .error,
+                    text: "Build failed",
+                    sentAt: now.addingTimeInterval(-3600)
                 ),
             ],
         ]
@@ -81,7 +93,7 @@ final class FakeAgentConversationRepository: AgentConversationRepository, @unche
         publishTranscript(for: agentID)
     }
 
-    func observeTranscript(for agentID: AgentIdentifier) -> AsyncStream<[TranscriptEntry]> {
+    func observeTranscript(for agentID: AgentIdentifier) -> AsyncStream<[ChatMessage]> {
         AsyncStream { continuation in
             let subscriptionID = UUID()
             lock.withLock { continuations[subscriptionID] = (agentID, continuation) }
@@ -104,12 +116,9 @@ final class FakeAgentConversationRepository: AgentConversationRepository, @unche
 
     // MARK: - Thread-safe snapshots and publishing
 
-    private func snapshotTranscript(for agentID: AgentIdentifier) -> [TranscriptEntry] {
+    private func snapshotTranscript(for agentID: AgentIdentifier) -> [ChatMessage] {
         lock.withLock {
-            TranscriptMerger.merge(
-                messages: messagesByAgent[agentID] ?? [],
-                toolUsageEvents: toolUsageByAgent[agentID] ?? []
-            )
+            (messagesByAgent[agentID] ?? []).sorted { $0.sentAt < $1.sentAt }
         }
     }
 

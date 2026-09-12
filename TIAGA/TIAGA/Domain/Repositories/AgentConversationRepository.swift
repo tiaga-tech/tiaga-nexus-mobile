@@ -18,7 +18,7 @@ protocol AgentConversationRepository {
     /// orchestrator conversation's honest busy-state exercise.
     func send(_ text: String, to agentID: AgentIdentifier) async throws
 
-    /// The live transcript for one agent's conversation (messages + tool
-    /// usage merged chronologically).
-    func observeTranscript(for agentID: AgentIdentifier) -> AsyncStream<[TranscriptEntry]>
+    /// The live transcript for one agent's conversation, chronologically
+    /// ordered.
+    func observeTranscript(for agentID: AgentIdentifier) -> AsyncStream<[ChatMessage]>
 }
