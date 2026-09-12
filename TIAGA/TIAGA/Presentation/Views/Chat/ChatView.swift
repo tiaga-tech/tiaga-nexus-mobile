@@ -12,6 +12,7 @@ struct ChatView: View {
     @StateObject private var viewModel = ChatViewModel()
     @State private var showsDynamicUICardBrowser = false
     @State private var showsResetConfirmation = false
+    @Environment(\.isSideMenuOpenGestureActive) private var isSideMenuOpenGestureActive
 
     init() {
         #if DEBUG
@@ -57,6 +58,11 @@ struct ChatView: View {
                 .padding(TIAGASpacing.lg)
             }
             .scrollDismissesKeyboard(.interactively)
+            // Otherwise the same swipe that opens the side menu also nudges
+            // this scroll position — a human swipe is never perfectly
+            // horizontal, and .simultaneousGesture deliberately lets both
+            // recognize the same touch at once. See FleetConsoleRootView.
+            .scrollDisabled(isSideMenuOpenGestureActive)
 
             if let message = viewModel.sendErrorMessage {
                 Text(message)
