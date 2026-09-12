@@ -86,14 +86,13 @@ extension TIAGAColor {
     }
 
     /// Maps a conversation's context-window usage (0...1) to a color, mirroring
-    /// the real product's compaction thresholds: an agent is flagged at 75% and
-    /// hits the hard limit at 100%, so the same boundaries drive the operator-
-    /// facing context bar. (Distinct from account/billing usage, which the real
-    /// product meters on a separate 60%/85% scale — see TODO.md Section 9.)
+    /// the web client's `ContextBar`: green below 60%, amber at 60% up to 85%,
+    /// red at 85% and above. (Distinct from account/billing usage, which uses
+    /// its own metering scale — see TODO.md Section 9.)
     static func forContextUsage(percentage: Double) -> Color {
         switch percentage {
-        case ..<0.75: return statusSuccess
-        case 0.75..<1.0: return statusWarning
+        case ..<0.60: return statusSuccess
+        case 0.60..<0.85: return statusWarning
         default: return statusDanger
         }
     }

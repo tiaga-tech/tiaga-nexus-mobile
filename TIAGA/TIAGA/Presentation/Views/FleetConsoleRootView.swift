@@ -177,7 +177,7 @@ struct FleetConsoleRootView: View {
     private func detailView(for route: AppRoute) -> some View {
         switch route {
         case .chat:
-            PlaceholderDetailView(title: "Chat")
+            ChatView()
         case .agentChat(let agentID):
             PlaceholderDetailView(title: "Agent Chat", subtitle: agentID.rawValue)
         case .devices:
