@@ -260,6 +260,12 @@ private struct ExpandedCardView: View {
                 }
             }
         }
+        // A diagram's own downward pan reads to the sheet's presentation
+        // controller as a swipe-to-dismiss, closing the sheet mid-gesture.
+        // Only the diagram case has a competing vertical drag, so only it
+        // needs the sheet's own gesture turned off — every other card kind
+        // keeps normal swipe-to-dismiss.
+        .interactiveDismissDisabled(card.kind == .diagram)
     }
 }
 
