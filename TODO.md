@@ -308,37 +308,69 @@ git history on `main` for the individual fix commits.
 
 ---
 
-## 6. Agent Chat — `feature/agent-chat`
+## 6. Agent Chat — `feature/agent-chat` ✅
 
 Per-agent conversation. Reuses `ChatMessage`, `ToolUsageEvent`,
 `SendChatMessageUseCase`, and `ChatComposerBar`/`MessageBubble` from Chat —
 do not duplicate them.
 
-- [ ] `Domain/Repositories/AgentRosterRepository.swift` — extend with
+**Revision:** `SendChatMessageUseCase` already took a `ConversationTarget`,
+but `OrchestratorConversationRepository` could only ever represent one
+conversation — and `AgentState.compacting`'s business rule ("cannot accept a
+new instruction") is agent-state-driven, not a generic streaming flag. Added
+a separate `Domain/Repositories/AgentConversationRepository.swift` +
+`FakeAgentConversationRepository` for per-agent transcript storage, and made
+`SendChatMessageUseCase` branch on target: orchestrator sends still gate on
+`isStreaming` exactly as before (no change to Section 5's behavior); agent
+sends gate on that agent's own `.compacting` state via a fresh
+`AgentRosterRepository` lookup. Also promoted `ChatView`'s private
+`TranscriptRow` to a shared `Presentation/Components/` view (matching
+`MessageBubble`/`ChatComposerBar`) so Agent Chat renders its transcript
+without duplicating it.
+
+**Post-review fixes (same PR):** two bugs found after the first pass —
+(1) switching directly from one agent's chat to another's didn't work
+(`AgentChatView` had no explicit `.id(agentID)`, so SwiftUI reused the
+existing view — and its `@StateObject` — instead of treating the new agent
+as a fresh identity); (2) deleting an agent didn't remove it from the side
+menu, because `AgentChatViewModel` and `SideMenuViewModel` each defaulted to
+their own separate `FakeAgentRosterRepository()` instance, so a delete
+mutated state the menu's roster never saw. Fixed by having
+`FleetConsoleRootView` own one shared `AgentRosterRepository` +
+`AgentConversationRepository` instance and inject the same ones everywhere,
+plus an `onRosterChanged` callback that reloads the side menu after a
+cancel or delete.
+
+- [x] `Domain/Repositories/AgentRosterRepository.swift` — extend with
       `cancelActiveTask(for:)` and `delete(_:)`, and an observe-single-agent method.
-- [ ] `UseCases/CancelAgentTaskUseCase.swift`
-  - [ ] Business rule: only valid while the agent is `.running` or `.compacting`
-  - [ ] Typed error: `AgentLifecycleError.noActiveTaskToCancel`
-- [ ] `UseCases/DeleteAgentUseCase.swift`
-  - [ ] Business rule: deleting is allowed regardless of state (matches the
+- [x] `UseCases/CancelAgentTaskUseCase.swift`
+  - [x] Business rule: only valid while the agent is `.running` or `.compacting`
+  - [x] Typed error: `AgentLifecycleError.noActiveTaskToCancel`
+- [x] `UseCases/DeleteAgentUseCase.swift`
+  - [x] Business rule: deleting is allowed regardless of state (matches the
         real product — in-flight tool calls are closed cleanly), but a
         second delete of an already-gone agent must fail cleanly
-  - [ ] Typed error: `AgentLifecycleError.agentNoLongerExists`
-- [ ] `Presentation/ViewModels/AgentChatViewModel.swift`
-- [ ] `Presentation/Views/AgentChat/AgentChatView.swift` — composer, transcript,
+  - [x] Typed error: `AgentLifecycleError.agentNoLongerExists`
+- [x] `Presentation/ViewModels/AgentChatViewModel.swift`
+- [x] `Presentation/Views/AgentChat/AgentChatView.swift` — composer, transcript,
       delete button, stop/cancel button shown only when state is `.running`
       or `.compacting`.
-- [ ] Unit tests (`TIAGATests/CancelAgentTaskUseCaseTests.swift`,
+- [x] Unit tests (`TIAGATests/CancelAgentTaskUseCaseTests.swift`,
       `DeleteAgentUseCaseTests.swift`):
-  - [ ] `test_cancelAgentTask_succeeds_whenAgentIsRunning`
-  - [ ] `test_cancelAgentTask_fails_whenAgentIsIdle`
-  - [ ] `test_deleteAgent_succeeds_whenAgentExists`
-  - [ ] `test_deleteAgent_fails_whenAgentAlreadyDeleted`
-  - [ ] `test_sendChatMessage_fails_whenTargetAgentIsCompacting` (extends the shared use case's coverage for the agent-target case)
+  - [x] `test_cancelAgentTask_succeeds_whenAgentIsRunning`
+  - [x] `test_cancelAgentTask_fails_whenAgentIsIdle`
+  - [x] `test_deleteAgent_succeeds_whenAgentExists`
+  - [x] `test_deleteAgent_fails_whenAgentAlreadyDeleted`
+  - [x] `test_sendChatMessage_fails_whenTargetAgentIsCompacting` (extends the shared use case's coverage for the agent-target case)
 
 ---
 
 ## 7. Devices — `feature/devices`
+
+**Note (added while building Section 6):** each device's screen/row should
+show which agent(s) are pinned to it — `Agent.pinnedDeviceID` already models
+this (Section 4), so it's a lookup against the existing agent roster, not a
+new domain field.
 
 - [ ] `Domain/Models/Device.swift` — `DeviceIdentifier`, display name,
       `DeviceType` (`.macOS`/`.windows`/`.linux`), `isProtected`, `lastSeenAt`.

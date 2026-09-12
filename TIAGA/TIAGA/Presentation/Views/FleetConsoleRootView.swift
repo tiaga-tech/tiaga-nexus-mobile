@@ -32,7 +32,14 @@ extension EnvironmentValues {
 struct FleetConsoleRootView: View {
     let account: Account
     @ObservedObject var authViewModel: AuthViewModel
-    @StateObject private var sideMenuViewModel = SideMenuViewModel()
+    @StateObject private var sideMenuViewModel: SideMenuViewModel
+    /// Shared with every `AgentChatView` this root constructs (see
+    /// `detailView(for:)`) — each screen defaulting to its own separate fake
+    /// meant a delete or cancel in Agent Chat never reached the side menu's
+    /// own roster, since they were mutating entirely unrelated in-memory
+    /// state. One instance, owned here, fixes that at the source.
+    @State private var agentRosterRepository: AgentRosterRepository
+    @State private var agentConversationRepository: AgentConversationRepository
     @State private var selectedRoute: AppRoute
     @State private var isSideMenuOpen: Bool
     /// Non-zero only while the drawer is actively being dragged — an offset
@@ -54,6 +61,12 @@ struct FleetConsoleRootView: View {
     init(account: Account, authViewModel: AuthViewModel) {
         self.account = account
         self.authViewModel = authViewModel
+
+        let agentRosterRepository = FakeAgentRosterRepository()
+        _agentRosterRepository = State(initialValue: agentRosterRepository)
+        _agentConversationRepository = State(initialValue: FakeAgentConversationRepository())
+        _sideMenuViewModel = StateObject(wrappedValue: SideMenuViewModel(repository: agentRosterRepository))
+
         #if DEBUG
         let rawSelectedRoute = ProcessInfo.processInfo.environment["TIAGA_DEBUG_SELECTED_ROUTE"]
         _isSideMenuOpen = State(initialValue: rawSelectedRoute == "sideMenu")
@@ -218,12 +231,27 @@ struct FleetConsoleRootView: View {
         case .chat:
             ChatView()
         case .agentChat(let agentID):
-            AgentChatView(agentID: agentID) {
-                // The agent was deleted — its own screen no longer has
-                // anything to show, so fall back to Chat rather than
-                // leaving the operator looking at a gone agent.
-                selectedRoute = .chat
-            }
+            AgentChatView(
+                agentID: agentID,
+                agentRosterRepository: agentRosterRepository,
+                agentConversationRepository: agentConversationRepository,
+                onDeleted: {
+                    // The agent was deleted — its own screen no longer has
+                    // anything to show, so fall back to Chat rather than
+                    // leaving the operator looking at a gone agent.
+                    selectedRoute = .chat
+                },
+                onRosterChanged: {
+                    Task { await sideMenuViewModel.load() }
+                }
+            )
+            // Without an explicit id, SwiftUI sees "still an AgentChatView
+            // in this slot" when the target agent changes and reuses the
+            // existing one — including its @StateObject, which keeps the
+            // *old* agent's id and never re-observes the new one. Switching
+            // agents only worked by detouring through Chat in between,
+            // which tore the view down and let a fresh one take its place.
+            .id(agentID)
         case .devices:
             PlaceholderDetailView(title: "Devices")
         case .settings:

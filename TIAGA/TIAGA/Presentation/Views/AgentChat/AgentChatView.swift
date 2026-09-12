@@ -14,10 +14,28 @@ struct AgentChatView: View {
     @State private var showsDeleteConfirmation = false
     @Environment(\.isSideMenuOpenGestureActive) private var isSideMenuOpenGestureActive
     let onDeleted: () -> Void
+    let onRosterChanged: () -> Void
 
-    init(agentID: AgentIdentifier, onDeleted: @escaping () -> Void) {
-        _viewModel = StateObject(wrappedValue: AgentChatViewModel(agentID: agentID))
+    /// `agentRosterRepository`/`agentConversationRepository` default to a
+    /// fresh fake for previews/standalone use, but the real call site
+    /// (`FleetConsoleRootView`) must pass its own shared instances — a
+    /// second, unrelated fake here wouldn't see (or reflect back) anything
+    /// the side menu's own roster does, which is exactly the bug where a
+    /// delete never left the menu.
+    init(
+        agentID: AgentIdentifier,
+        agentRosterRepository: AgentRosterRepository = FakeAgentRosterRepository(),
+        agentConversationRepository: AgentConversationRepository = FakeAgentConversationRepository(),
+        onDeleted: @escaping () -> Void,
+        onRosterChanged: @escaping () -> Void = {}
+    ) {
+        _viewModel = StateObject(wrappedValue: AgentChatViewModel(
+            agentID: agentID,
+            agentRosterRepository: agentRosterRepository,
+            agentConversationRepository: agentConversationRepository
+        ))
         self.onDeleted = onDeleted
+        self.onRosterChanged = onRosterChanged
     }
 
     var body: some View {
@@ -96,7 +114,10 @@ struct AgentChatView: View {
             if viewModel.canCancelActiveTask {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        Task { await viewModel.cancelActiveTask() }
+                        Task {
+                            await viewModel.cancelActiveTask()
+                            onRosterChanged()
+                        }
                     } label: {
                         Image(systemName: TIAGAIcon.cancelTask)
                             .foregroundStyle(TIAGAColor.statusDanger)
@@ -127,7 +148,10 @@ struct AgentChatView: View {
             Text("This permanently removes \(viewModel.agent?.name ?? "this agent") and its conversation. This can't be undone.")
         }
         .onChange(of: viewModel.isDeleted) { _, isDeleted in
-            if isDeleted { onDeleted() }
+            if isDeleted {
+                onRosterChanged()
+                onDeleted()
+            }
         }
     }
 }
