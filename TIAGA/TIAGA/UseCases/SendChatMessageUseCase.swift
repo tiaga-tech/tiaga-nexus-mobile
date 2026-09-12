@@ -11,8 +11,11 @@ import Foundation
 /// be empty" rule is identical for both, but what counts as "busy" differs:
 /// the orchestrator conversation tracks its own streaming-reply flag, while
 /// an agent's own conversation is gated by the agent's own lifecycle state
-/// instead (see `AgentState.compacting`'s business rule) — an agent doesn't
-/// stream a single synchronous reply the way the orchestrator does.
+/// instead — an agent doesn't stream a single synchronous reply the way the
+/// orchestrator does. A `.running` agent is already mid-task and doesn't
+/// accept new input until it's idle again (the operator's only way to
+/// interrupt it is the stop button, not a new message), and `.compacting`
+/// is blocked per `AgentState.compacting`'s own business rule.
 ///
 /// Each screen only supplies the dependency it actually uses: `ChatViewModel`
 /// passes `orchestratorRepository`; `AgentChatViewModel` passes
@@ -22,7 +25,7 @@ import Foundation
 /// Business Rules:
 /// 1. The text cannot be empty or whitespace-only.
 /// 2. Sending to `.orchestrator` fails while it's still streaming a reply.
-/// 3. Sending to `.agent` fails while that agent is `.compacting`.
+/// 3. Sending to `.agent` fails while that agent is `.running` or `.compacting`.
 struct SendChatMessageUseCase {
     let orchestratorRepository: OrchestratorConversationRepository
     let agentRosterRepository: AgentRosterRepository
@@ -56,10 +59,12 @@ struct SendChatMessageUseCase {
             guard let agent = agents.first(where: { $0.id == agentID }) else {
                 throw AgentLifecycleError.agentNoLongerExists
             }
-            guard agent.state != .compacting else {
+            switch agent.state {
+            case .idle, .error:
+                try await agentConversationRepository.send(trimmed, to: agentID)
+            case .running, .compacting:
                 throw SendChatMessageError.conversationBusy
             }
-            try await agentConversationRepository.send(trimmed, to: agentID)
         }
     }
 }

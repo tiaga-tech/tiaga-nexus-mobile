@@ -102,6 +102,33 @@ struct SendChatMessageUseCaseTests {
     }
 
     @Test func test_sendChatMessage_succeeds_withNonEmptyText_toAgent() async throws {
+        let agentID = AgentIdentifier(rawValue: "agent-nova")
+        let agentRosterRepository = StubAgentRosterRepository()
+        agentRosterRepository.agent = Agent(
+            id: agentID,
+            name: "Nova",
+            state: .idle,
+            pinnedDeviceID: DeviceIdentifier(rawValue: "device-1"),
+            lastActivitySummary: "Waiting for the next instruction",
+            lastActivityAt: Date(),
+            contextUsageFraction: 0.1
+        )
+        let agentConversationRepository = StubAgentConversationRepository()
+        let useCase = SendChatMessageUseCase(
+            agentRosterRepository: agentRosterRepository,
+            agentConversationRepository: agentConversationRepository
+        )
+
+        try await useCase.execute(text: "  Use the new hero image  ", to: .agent(agentID))
+
+        #expect(agentConversationRepository.sentTexts == ["Use the new hero image"])
+        #expect(agentConversationRepository.sentAgentIDs == [agentID])
+    }
+
+    @Test func test_sendChatMessage_fails_whenTargetAgentIsRunning() async throws {
+        // A running agent is already mid-task and doesn't accept new input
+        // until it's idle again — the only way to interrupt it is the stop
+        // button, not a new message.
         let agentID = AgentIdentifier(rawValue: "agent-atlas")
         let agentRosterRepository = StubAgentRosterRepository()
         agentRosterRepository.agent = Agent(
@@ -119,10 +146,10 @@ struct SendChatMessageUseCaseTests {
             agentConversationRepository: agentConversationRepository
         )
 
-        try await useCase.execute(text: "  Use the new hero image  ", to: .agent(agentID))
-
-        #expect(agentConversationRepository.sentTexts == ["Use the new hero image"])
-        #expect(agentConversationRepository.sentAgentIDs == [agentID])
+        await #expect(throws: SendChatMessageError.conversationBusy) {
+            try await useCase.execute(text: "Any update?", to: .agent(agentID))
+        }
+        #expect(agentConversationRepository.sentTexts.isEmpty)
     }
 
     @Test func test_sendChatMessage_fails_whenTargetAgentIsCompacting() async throws {

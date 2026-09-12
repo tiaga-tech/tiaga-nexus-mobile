@@ -58,9 +58,11 @@ final class AgentChatViewModel: ObservableObject {
 
     /// Mirrors `SendChatMessageUseCase`'s own busy check so the composer
     /// visibly reflects it, rather than only surfacing the rule as an error
-    /// after a failed send attempt.
+    /// after a failed send attempt. A running agent is already mid-task and
+    /// doesn't accept new input until it's idle again (or has errored) — the
+    /// operator's only way to interrupt it is the stop button.
     var isComposerDisabled: Bool {
-        agent?.state == .compacting
+        agent?.state == .running || agent?.state == .compacting
     }
 
     func send() async {
