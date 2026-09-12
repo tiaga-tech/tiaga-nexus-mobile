@@ -26,9 +26,9 @@ extension EnvironmentValues {
 
 /// The fleet console shown to an authenticated `.active` account: a
 /// hamburger-triggered slide-out drawer (the side menu) over the current
-/// screen. Chat, Devices, and Agent Chat are placeholders until their own
-/// sections land; Settings' placeholder carries Log Out since that's its
-/// real future home (see `LogoutUseCase`'s doc comment).
+/// screen, with the app-wide permission approval overlay layered above
+/// everything. Settings is still a placeholder that carries Log Out since
+/// that's its real future home (see `LogoutUseCase`'s doc comment).
 struct FleetConsoleRootView: View {
     let account: Account
     @ObservedObject var authViewModel: AuthViewModel
@@ -40,6 +40,7 @@ struct FleetConsoleRootView: View {
     /// state. One instance, owned here, fixes that at the source.
     @State private var agentRosterRepository: AgentRosterRepository
     @State private var agentConversationRepository: AgentConversationRepository
+    @StateObject private var permissionRequestOverlayViewModel = PermissionRequestOverlayViewModel()
     @State private var selectedRoute: AppRoute
     @State private var isSideMenuOpen: Bool
     /// Non-zero only while the drawer is actively being dragged — an offset
@@ -216,6 +217,11 @@ struct FleetConsoleRootView: View {
                         }
                     }
             )
+
+            // Root-scoped and last in the ZStack (so it renders above the
+            // side menu drawer too) — a permission request can arrive while
+            // the operator is anywhere in the app, menu open or not.
+            PermissionRequestOverlayView(viewModel: permissionRequestOverlayViewModel)
         }
         .background(TIAGAColor.background)
         // Starts as soon as the fleet console appears, not lazily when the

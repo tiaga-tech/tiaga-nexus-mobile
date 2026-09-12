@@ -76,15 +76,6 @@ extension TIAGAColor {
         isOnline ? statusSuccess : statusDanger
     }
 
-    /// Maps a permission request's urgency (time remaining before auto-deny)
-    /// to a color, so the UI can warn an operator before a request expires unseen.
-    static func forPermissionUrgency(_ urgency: PermissionRequestUrgency) -> Color {
-        switch urgency {
-        case .normal: return statusWarning
-        case .expiringSoon: return statusDanger
-        }
-    }
-
     /// Maps a conversation's context-window usage (0...1) to a color, mirroring
     /// the web client's `ContextBar`: green below 60%, amber at 60% up to 85%,
     /// red at 85% and above. (Distinct from account/billing usage, which uses
