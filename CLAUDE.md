@@ -362,15 +362,17 @@ current branch's blob for "after", in the same grid table:
 
 ## Current status
 
-Sections 1–7 (Design System, API Layer, Auth, Side Menu, Chat, Agent Chat,
-Devices) are merged to `main`, plus a follow-up unifying `ChatMessage`'s
-domain shape with the real backend's. Next up: Section 8, Permissions —
-which now only adds the approval pop-up and one business rule on top of
-`ToggleDevicePermissionsUseCase` (built early, in Section 7, since the real
-product has that toggle live in the device row, not deferred). See
-`TODO.md` for the ordered, checkbox-tracked build plan (one feature branch
-at a time, merged to `main` before the next starts) and each merged
-section's notes on what shipped differently from the original plan.
+Sections 1–8 (Design System, API Layer, Auth, Side Menu, Chat, Agent Chat,
+Devices, Permissions) are merged to `main`, plus a follow-up unifying
+`ChatMessage`'s domain shape with the real backend's. The Permissions
+approval overlay renders `.edit` requests as a native per-file tab view
+with a real line-level diff (`PermissionEditFilesView`/`PermissionEditDiff`),
+matching the web client's `EditReview`/`DiffView` — not the backend's
+flattened `detail` text, which only prefixes the first line of a multi-line
+change. Next up: Section 9, Settings. See `TODO.md` for the ordered,
+checkbox-tracked build plan (one feature branch at a time, merged to `main`
+before the next starts) and each merged section's notes on what shipped
+differently from the original plan.
 
 The live-backend policy above is current as of this writing, but no
 `Remote*Repository` has been built yet — every repository still defaults to
