@@ -275,20 +275,23 @@ the real product at all. Retired `ToolUsageEvent` and `TranscriptEntry`/
 `TranscriptMerger` entirely; `ChatMessage` now carries a `kind:
 ChatMessageKind` field (`.voice`/`.tool`/`.context`/`.task`/`.ui`/`.error`),
 and both conversation repositories return `[ChatMessage]` directly — no
-merging needed since there's only one array now. `TranscriptRow` renders
-`kind` two different ways matching the two real web components exactly:
-Chat labels each kind with a colored dot (`MessageList.tsx`'s
-`KIND_STYLES`), Agent Chat doesn't (`AgentChatWindow.tsx`'s simpler
+merging needed since there's only one array now. `TranscriptRow` initially
+labeled each kind with a colored dot for Chat specifically (matching
+`MessageList.tsx`'s richer `KIND_STYLES`), while Agent Chat kept its
+existing plain style (matching `AgentChatWindow.tsx`, whose simpler
 `role`-only wire format has no separate kind at all — tool/error are just
-additional `role` values there, which is why Agent Chat's `.tool` renders as
-a plain monospace line, not a bordered bubble). This also fixed the original
-ask that prompted the discovery: an agent's `.error` state now shows as an
-error-kind message in its own transcript (matching the web), not just a
-status pill — and the orchestrator's own conversation can carry an error
-message too, not only an agent's. `.context`/`.task`/`.ui` are modeled but
-not yet exercised by any fixture. Removed `TranscriptMergerTests.swift`
-(the function it tested no longer exists — sorting one array by `sentAt` is
-a one-liner, not separately unit-tested).
+additional `role` values there) — that per-screen difference was reverted
+per feedback, and both screens now render identically with the original
+plain style (no labels, `.tool` as a dim monospace line, `.error` as an
+unlabeled red bordered bubble). `ChatMessage.kind` itself stays — it's still
+what picks the bubble style — only the extra label UI is gone. This also
+fixed the original ask that prompted the discovery: an agent's `.error`
+state now shows as an error-kind message in its own transcript (matching
+the web), not just a status pill — and the orchestrator's own conversation
+can carry an error message too, not only an agent's. `.context`/`.task`/
+`.ui` are modeled but not yet exercised by any fixture. Removed
+`TranscriptMergerTests.swift` (the function it tested no longer exists —
+sorting one array by `sentAt` is a one-liner, not separately unit-tested).
 
 - [x] `Domain/Models/ChatMessage.swift` — id, role (`.operator` / `.orchestrator`),
       text, sentAt.
