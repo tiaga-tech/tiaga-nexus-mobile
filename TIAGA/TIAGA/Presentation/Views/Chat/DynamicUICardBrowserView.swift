@@ -197,16 +197,37 @@ private struct ExpandedCardView: View {
                     }
 
                 case .code:
-                    CodeCardBody(card: card, copied: $copied)
-                        .padding(TIAGASpacing.lg)
-                        .overlay {
-                            if let code = card.code {
-                                // The compact web view is non-scrolling; give the
-                                // expanded code a scrollable web view instead.
-                                HighlightedCodeView(code: code, language: card.language ?? "plaintext", isScrollable: true)
-                                    .padding(.top, TIAGASpacing.xxl)
+                    VStack(alignment: .leading, spacing: TIAGASpacing.xs) {
+                        HStack {
+                            Text((card.language ?? "code").uppercased())
+                                .font(TIAGATypography.caption)
+                                .foregroundStyle(TIAGAColor.textTertiary)
+                            Spacer()
+                            Button {
+                                UIPasteboard.general.string = card.code
+                                copied = true
+                                Task {
+                                    try? await Task.sleep(nanoseconds: 1_500_000_000)
+                                    copied = false
+                                }
+                            } label: {
+                                Text(copied ? "Copied" : "Copy")
+                                    .font(TIAGATypography.caption)
+                                    .foregroundStyle(copied ? TIAGAColor.statusSuccess : TIAGAColor.textSecondary)
                             }
+                            .buttonStyle(.plain)
                         }
+                        if let code = card.code {
+                            HighlightedCodeView(
+                                code: code,
+                                language: card.language ?? "plaintext",
+                                isScrollable: true
+                            )
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .clipShape(RoundedRectangle(cornerRadius: TIAGARadius.sm, style: .continuous))
+                        }
+                    }
+                    .padding(TIAGASpacing.lg)
 
                 case .table:
                     if let columns = card.columns {
@@ -254,7 +275,8 @@ private struct TableView: View {
                         Text(column)
                             .font(TIAGATypography.caption)
                             .foregroundStyle(TIAGAColor.textSecondary)
-                            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+                            .fixedSize(horizontal: true, vertical: false)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, TIAGASpacing.md)
                             .padding(.vertical, TIAGASpacing.sm)
                     }
