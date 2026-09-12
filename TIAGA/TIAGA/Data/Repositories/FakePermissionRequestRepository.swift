@@ -36,37 +36,51 @@ final class FakePermissionRequestRepository: PermissionRequestRepository, @unche
                 requester: "TIAGA",
                 tool: "edit",
                 kind: .edit,
-                file: "web/src/App.tsx",
-                // Matches the real backend's own detail-building exactly
-                // (PermissionManager.cs's DescribeEdit): each edit becomes
-                // "- {old}\n+ {new}\n", concatenated per edit — note only
-                // the FIRST line of a multi-line old/new gets the "-"/"+"
-                // prefix; continuation lines render unprefixed. A one-line
-                // change doesn't exercise that, so this fixture has two
-                // edits, one of them multi-line, to test it honestly.
+                // The edit tool's real payload is `files: [{ path, edits }]`
+                // — more than one file can be edited in a single tool call/
+                // permission request. When there's more than one,
+                // PermissionManager.cs's DescribeEdit uses "{count} files"
+                // as the label instead of a single path — matched exactly
+                // here rather than inventing a different label format.
+                file: "2 files",
+                // Matches DescribeEdit's own detail-building exactly: each
+                // edit becomes "- {old}\n+ {new}\n" (only the first line of
+                // a multi-line old/new gets the "-"/"+" prefix —
+                // continuation lines render unprefixed, a real quirk of the
+                // backend's plain string interpolation, not a diff
+                // formatter), and a blank line separates each file's edits.
+                // The first file's edit is a genuine multi-line block
+                // replacement (not just a couple of one-line swaps), and
+                // the second file demonstrates the multi-file case.
                 detail: """
-                - function getTitle() {
-                  return 'Old Title'
+                - const config = {
+                  theme: 'light',
+                  debug: false,
+                  timeout: 3000
                 }
-                + function getTitle() {
-                  return 'New Title'
+                + const config = {
+                  theme: 'dark',
+                  debug: true,
+                  timeout: 5000
                 }
-                - import { title } from './constants'
-                + import { title, subtitle } from './constants'
-                import { logger } from './logger'
+
+                - export const VERSION = '1.0.0'
+                + export const VERSION = '1.1.0'
                 """,
                 files: [
                     PermissionRequestFile(
                         path: "web/src/App.tsx",
                         edits: [
                             PermissionRequestEdit(
-                                old: "function getTitle() {\n  return 'Old Title'\n}",
-                                new: "function getTitle() {\n  return 'New Title'\n}"
+                                old: "const config = {\n  theme: 'light',\n  debug: false,\n  timeout: 3000\n}",
+                                new: "const config = {\n  theme: 'dark',\n  debug: true,\n  timeout: 5000\n}"
                             ),
-                            PermissionRequestEdit(
-                                old: "import { title } from './constants'",
-                                new: "import { title, subtitle } from './constants'\nimport { logger } from './logger'"
-                            ),
+                        ]
+                    ),
+                    PermissionRequestFile(
+                        path: "web/src/utils.ts",
+                        edits: [
+                            PermissionRequestEdit(old: "export const VERSION = '1.0.0'", new: "export const VERSION = '1.1.0'"),
                         ]
                     ),
                 ]
