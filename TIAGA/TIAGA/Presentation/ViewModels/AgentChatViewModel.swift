@@ -48,9 +48,12 @@ final class AgentChatViewModel: ObservableObject {
         startObserving()
     }
 
-    /// The stop button only makes sense while there's an active task to stop.
+    /// The stop button only makes sense while there's an active task the
+    /// operator can actually interrupt. A `.compacting` agent has an active
+    /// operation too, but per `AgentState.compacting`'s own business rule
+    /// it's a self-contained transition that must finish on its own.
     var canCancelActiveTask: Bool {
-        agent?.state == .running || agent?.state == .compacting
+        agent?.state == .running
     }
 
     /// Mirrors `SendChatMessageUseCase`'s own busy check so the composer

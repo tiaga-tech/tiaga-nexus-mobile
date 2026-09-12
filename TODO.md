@@ -344,8 +344,14 @@ cancel or delete.
 - [x] `Domain/Repositories/AgentRosterRepository.swift` — extend with
       `cancelActiveTask(for:)` and `delete(_:)`, and an observe-single-agent method.
 - [x] `UseCases/CancelAgentTaskUseCase.swift`
-  - [x] Business rule: only valid while the agent is `.running` or `.compacting`
-  - [x] Typed error: `AgentLifecycleError.noActiveTaskToCancel`
+  - [x] Business rule: only valid while the agent is `.running` — a
+        `.compacting` agent has an active operation too, but per
+        `AgentState.compacting`'s own business rule it's a self-contained
+        transition that must finish on its own, not something the operator
+        can interrupt (corrected after first shipping "running or
+        compacting" — no stop button should ever appear while compacting)
+  - [x] Typed error: `AgentLifecycleError.noActiveTaskToCancel` (idle/error),
+        `.cannotInterruptCompaction` (compacting)
 - [x] `UseCases/DeleteAgentUseCase.swift`
   - [x] Business rule: deleting is allowed regardless of state (matches the
         real product — in-flight tool calls are closed cleanly), but a

@@ -52,14 +52,18 @@ struct CancelAgentTaskUseCaseTests {
         #expect(repository.cancelCallCount == 1)
     }
 
-    @Test func test_cancelAgentTask_succeeds_whenAgentIsCompacting() async throws {
+    @Test func test_cancelAgentTask_fails_whenAgentIsCompacting() async throws {
+        // Compacting has an active operation, but per AgentState.compacting's
+        // own business rule it's self-contained and can't be interrupted —
+        // this must NOT succeed just because something is happening.
         let repository = StubAgentRosterRepository()
         repository.agent = makeAgent(id: "agent-1", state: .compacting)
         let useCase = CancelAgentTaskUseCase(repository: repository)
 
-        try await useCase.execute(agentID: AgentIdentifier(rawValue: "agent-1"))
-
-        #expect(repository.cancelCallCount == 1)
+        await #expect(throws: AgentLifecycleError.cannotInterruptCompaction) {
+            try await useCase.execute(agentID: AgentIdentifier(rawValue: "agent-1"))
+        }
+        #expect(repository.cancelCallCount == 0)
     }
 
     @Test func test_cancelAgentTask_fails_whenAgentIsIdle() async throws {

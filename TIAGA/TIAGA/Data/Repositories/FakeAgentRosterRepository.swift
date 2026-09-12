@@ -95,7 +95,12 @@ final class FakeAgentRosterRepository: AgentRosterRepository, @unchecked Sendabl
         guard let agent = lock.withLock({ agentsByID[id] }) else {
             throw AgentLifecycleError.agentNoLongerExists
         }
-        guard agent.state == .running || agent.state == .compacting else {
+        switch agent.state {
+        case .running:
+            break
+        case .compacting:
+            throw AgentLifecycleError.cannotInterruptCompaction
+        case .idle, .error:
             throw AgentLifecycleError.noActiveTaskToCancel
         }
 
