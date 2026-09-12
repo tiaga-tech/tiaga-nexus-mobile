@@ -722,6 +722,33 @@ everywhere-else selection rule every `Remote*Repository` follows.
       once it's gone, so the scenario the rule guards against essentially
       can't happen through this app's own UI — noted here so a future
       session doesn't rediscover this from scratch.
+
+**Post-merge bug, found via real manual testing:** approve/deny reached the
+backend fine, but the approval overlay never dismissed, and no live
+permission request ever appeared while the app was running — only after a
+relaunch's fresh `GET /api/permissions` snapshot. Root cause, confirmed
+empirically (a local raw-socket SSE server + a standalone
+`URLSession.bytes(for:)` script, outside the app entirely): **`AsyncBytes
+.lines` never yields an empty-string element for a blank line at all** —
+`TIAGAEventStream`'s original parser waited for `line.isEmpty` to flush an
+accumulated event, so nothing was ever yielded, from any event type, ever.
+Fixed by yielding directly on each `data:` line instead of buffering for a
+blank-line boundary (safe here since the backend only ever sends single-
+line JSON per event). See `TIAGAEventStream.swift`'s doc comment and
+`TIAGAEventStreamTests.swift` for regression coverage — this bug was
+invisible to every test and manual screenshot pass so far because nothing
+before Permissions actually depended on a *live* push arriving; it only
+surfaced once a human tested the real end-to-end interactive flow.
+
+The user also reported Devices not reflecting a permissions-toggle made
+from the web client while the app sat open. `DeviceFleetRepository` gained
+`observeDeviceChanges() -> AsyncStream<Void>` — a pulse (not a merged live
+snapshot) on every `type: "device"` SSE frame, that `DevicesViewModel` uses
+to just re-run the existing, already-tested `listDevices()` fetch rather
+than replicating `useDevices.ts`'s per-action merge logic
+(`online`/`offline`/`renamed`/`removed`/`updating`) for what's a
+comparatively rare event.
+
 - [ ] `RemoteAccountRepository` (Settings) — usage/plan (`GET /api/billing`)
       + privacy preference (`GET`/`POST /api/privacy`, remembering the wire
       field is inverted — `trainingOptOut`, not `improveAIEnabled`; see

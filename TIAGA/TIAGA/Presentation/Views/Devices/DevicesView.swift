@@ -51,7 +51,10 @@ struct DevicesView: View {
             .navigationTitle("Devices")
             .navigationBarTitleDisplayMode(.inline)
         }
-        .task { await viewModel.load() }
+        .task {
+            viewModel.startObservingLiveChanges()
+            await viewModel.load()
+        }
     }
 }
 

@@ -14,7 +14,7 @@ import Foundation
 /// bare `data: {...}` line with no SSE `event:` name at all
 /// (`EventHub.cs`/`EventsController.cs`): events are discriminated purely
 /// by a `"type"` key inside the JSON payload.
-final class RemoteEventBus: @unchecked Sendable {
+nonisolated final class RemoteEventBus: @unchecked Sendable {
     static let shared = RemoteEventBus()
 
     private let eventStream: TIAGAEventStream

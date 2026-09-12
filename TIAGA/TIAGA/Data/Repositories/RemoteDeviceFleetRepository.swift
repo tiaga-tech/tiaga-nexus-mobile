@@ -18,14 +18,33 @@ import Foundation
 /// `DevicesViewModel` grows a live-updating list.
 final class RemoteDeviceFleetRepository: DeviceFleetRepository {
     private let apiClient: TIAGAAPIClient
+    private let eventBus: RemoteEventBus
 
-    init(apiClient: TIAGAAPIClient = TIAGAAPIClient()) {
+    init(apiClient: TIAGAAPIClient = TIAGAAPIClient(), eventBus: RemoteEventBus = .shared) {
         self.apiClient = apiClient
+        self.eventBus = eventBus
     }
 
     func listDevices() async throws -> [Device] {
         let response: DevicesListPayload = try await apiClient.get("devices")
         return try response.devices.map { try $0.toDevice() }
+    }
+
+    /// A pulse per `type: "device"` SSE frame — matches the real payload
+    /// shared by the REST list and the live event (`DeviceManager.cs`'s
+    /// `DescribeInternal`), but this repository only uses the event as a
+    /// signal to re-fetch (see the protocol's doc comment for why).
+    func observeDeviceChanges() -> AsyncStream<Void> {
+        let upstream = eventBus.events(ofType: "device")
+        return AsyncStream { continuation in
+            let task = Task {
+                for await _ in upstream {
+                    continuation.yield(())
+                }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
     }
 
     func setPermissionsRequired(_ permissionsRequired: Bool, for id: DeviceIdentifier) async throws {

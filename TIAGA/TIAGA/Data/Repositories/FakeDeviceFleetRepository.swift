@@ -51,6 +51,12 @@ final class FakeDeviceFleetRepository: DeviceFleetRepository, @unchecked Sendabl
         return lock.withLock { deviceOrder.compactMap { devicesByID[$0] } }
     }
 
+    /// No live simulation — the fixture is static demo data, and nothing
+    /// else in a Preview or a test can mutate the fleet out from under it.
+    func observeDeviceChanges() -> AsyncStream<Void> {
+        AsyncStream { _ in }
+    }
+
     func setPermissionsRequired(_ permissionsRequired: Bool, for id: DeviceIdentifier) async throws {
         guard let device = lock.withLock({ devicesByID[id] }) else {
             throw DevicePermissionsError.deviceNoLongerExists
