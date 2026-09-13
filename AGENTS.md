@@ -379,19 +379,33 @@ what shipped differently from the original plan, and this file's own "Live
 backend" section above for what's deliberately still out of scope (no MCP
 domain concept).
 
-Live-backend wiring is now underway: `RemoteAuthSessionRepository` talks to
-the real backend's `AuthController`/`RedeemController` outside Xcode
-Previews — Login, the Waitlist Gate, session restore on launch, and Log Out
-are all real against `https://tiaga.tech`. Every other repository
-(Chat/Agent Chat/Devices/Permissions/Settings) still defaults to
-`Fake*Repository` unconditionally; those are separate, not-yet-started
-pieces of work. One deliberate deviation from the web client: an `.active`,
-non-admin account with no subscription or credits (`hasAccess: false` on
-`/api/auth/me`) is NOT force-routed to a billing paywall the way the web
-client does — this app has no checkout flow to route to (Settings' Billing
-section is read-only, web-only by design), and Settings' Usage/Billing
-sections already surface "no active plan" gracefully, so the Fleet Console
-just stays reachable at zero usage budget instead.
+Live-backend wiring is now underway: `RemoteAuthSessionRepository` (Auth),
+`RemoteDeviceFleetRepository` (Devices), `RemotePermissionRequestRepository`
+(Permissions), and `RemoteOrchestratorConversationRepository` (Chat) all
+talk to the real backend outside Xcode Previews — see `TODO.md`'s "Live
+Backend Wiring" section for each one's own revision notes. Agent Chat and
+Settings still default to `Fake*Repository` unconditionally; those are
+separate, not-yet-started pieces of work. One deliberate deviation from the
+web client: an `.active`, non-admin account with no subscription or credits
+(`hasAccess: false` on `/api/auth/me`) is NOT force-routed to a billing
+paywall the way the web client does — this app has no checkout flow to
+route to (Settings' Billing section is read-only, web-only by design), and
+Settings' Usage/Billing sections already surface "no active plan"
+gracefully, so the Fleet Console just stays reachable at zero usage budget
+instead.
+
+**Real bug found and fixed post-merge**: `RemoteEventBus` (the shared
+`/api/events` SSE multiplexer every live repository above subscribes
+through) opened one connection for the whole process's lifetime and never
+re-read the session cookie once live. Logging out and into a different
+account without restarting the app left that connection permanently bound
+to whichever account first opened it — every subsequent account's Chat/
+Devices/Permissions screens looked "connected" but silently received
+nothing live (regular REST calls were unaffected, since those pick up the
+current cookie per request). Fixed with `RemoteEventBus.disconnect()`,
+called from `RemoteAuthSessionRepository.logout()`, so the next login opens
+a fresh connection bound to whatever account is now signed in. Verified
+against a real repeated logout/relogin cycle across two accounts.
 
 ## Assessment context (for reference — full spec given by the user)
 
