@@ -52,7 +52,16 @@ struct AgentChatView: View {
 
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: TIAGASpacing.sm) {
+                    // A plain VStack, not LazyVStack: a direct chat with one
+                    // agent is nowhere near long enough to need laziness,
+                    // and LazyVStack was the actual cause of the "scrolls to
+                    // a blank area" bug — scrollTo(anchor:) on a lazy stack
+                    // targets an *estimated* position for rows it hasn't
+                    // measured yet, which can overshoot past the real
+                    // (shorter) content into that estimated-but-never-
+                    // rendered space. A fully-measured VStack has no
+                    // estimate to get wrong.
+                    VStack(alignment: .leading, spacing: TIAGASpacing.sm) {
                         if viewModel.transcript.isEmpty {
                             Text("No messages with \(viewModel.agent?.name ?? "this agent") yet.")
                                 .font(TIAGATypography.subheadline)

@@ -9,12 +9,22 @@ import SwiftUI
 /// messages and tool-usage events, the shared composer, a reset button, the
 /// context-usage bar, and an entry point into the dynamic UI card history.
 struct ChatView: View {
-    @StateObject private var viewModel = ChatViewModel()
+    @StateObject private var viewModel: ChatViewModel
     @State private var showsDynamicUICardBrowser = false
     @State private var showsResetConfirmation = false
     @Environment(\.isSideMenuOpenGestureActive) private var isSideMenuOpenGestureActive
 
-    init() {
+    /// `repository` defaults to a fresh fake for previews/standalone use,
+    /// but the real call site (`FleetConsoleRootView`) must pass its own
+    /// shared, persistent instance — matching the real web client, which
+    /// mounts its orchestrator conversation state once for the whole
+    /// session rather than per-visit. See `FleetConsoleRootView`'s own
+    /// `orchestratorConversationRepository` doc comment for why a fresh
+    /// instance per visit caused real bugs (a confirmed subscription leak,
+    /// and even after fixing that, races that could show stale "replying"
+    /// state or fail to load on return to Chat).
+    init(repository: OrchestratorConversationRepository = FakeOrchestratorConversationRepository()) {
+        _viewModel = StateObject(wrappedValue: ChatViewModel(repository: repository))
         #if DEBUG
         // Screenshot/QA tooling only. `simctl` cannot tap/type, so these
         // overrides let a screenshot pass present the card browser or the

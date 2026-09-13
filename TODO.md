@@ -929,6 +929,50 @@ everywhere-else selection rule every `Remote*Repository` follows.
         real agent, real LLM cost, and taps this app can't script without
         the user's own device) — flagged to the user as a leak fixed with
         real confidence, not a root cause proven beyond doubt.
+      - **Follow-up 3 (the `[weak self]` fix above wasn't enough — real
+        architectural mismatch, not just a leaky method)**: the user found
+        that repeatedly switching between Chat and Agent Chat, with *no
+        message ever sent*, still made the orchestrator show "replying"
+        stuck, and sometimes Chat's transcript failed to load at all on
+        return. Checked the real web client's own structure this time
+        (`App.tsx`/`MainUI.tsx`): `useConversation()` — the hook owning the
+        orchestrator's live transcript/thinking state — mounts exactly
+        *once*, for the whole authenticated session; Agent Chat there
+        (`AgentChatWindow`) is an overlay panel on top of that
+        always-mounted shell, never a replacement for it. This app's
+        `ChatView()` did the opposite: a fresh `RemoteOrchestratorConversationRepository`
+        (with a fresh SSE subscription and a fresh cached "is thinking"
+        flag) was created and torn down on *every single visit* to the Chat
+        tab — a real mismatch with how the product being modeled actually
+        works, not a bug that a `[weak self]` patch alone could fully fix
+        (it closed the leak, but repeated create/destroy cycles were still
+        inherently race-prone for state meant to track something
+        continuously). Fixed by hoisting `orchestratorConversationRepository`
+        up to `FleetConsoleRootView` as a `@State` property constructed
+        once, exactly mirroring the *already-existing* precedent for
+        `agentRosterRepository`/`agentConversationRepository` (added back
+        when a per-screen fake caused an analogous Agent Chat bug — see
+        that property's own doc comment). `ChatView`/`ChatViewModel` are
+        still constructed fresh per visit (cheap, view-layer only), but now
+        wrap the *same* persistent repository instance every time, so a
+        return visit sees the already-correct cached state immediately
+        instead of racing a fresh `seed()` fetch and a fresh subscription
+        against whatever's left over from the last visit. Verified with the
+        same init/deinit NSLog technique: across four full round-trips
+        (Chat → Devices → Chat) × 2, the repository initializes exactly
+        once and never deinitializes.
+      - **Follow-up 4**: separately, Agent Chat's "scrolls to a blank area"
+        report turned out to have a real, different cause once traced:
+        `LazyVStack` + `ScrollViewReader.scrollTo(anchor:)` targets an
+        *estimated* position for rows it hasn't measured yet, which can
+        overshoot past the real (shorter) content into that
+        estimated-but-never-rendered space — a known limitation, and
+        `ChatView`'s own retry logic only ever mitigated the *opposite*
+        failure mode (landing too early), not this one. Since a direct
+        chat with one agent is nowhere near long enough to need
+        `LazyVStack`'s laziness, switched `AgentChatView`'s transcript to a
+        plain `VStack` — fully measured, no estimate to get wrong — rather
+        than adding more retries on top of an estimation problem.
 - [x] `RemoteDeviceFleetRepository` (Devices) — device list
       (`GET /api/devices`) + the permissions-required toggle
       (`PUT /api/devices/{id}`). **Revision:** checked `DevicesController.cs`/
