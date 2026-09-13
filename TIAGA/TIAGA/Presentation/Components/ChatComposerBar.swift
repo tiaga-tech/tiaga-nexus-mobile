@@ -10,10 +10,18 @@ import SwiftUI
 /// this app even though the desktop client is voice-first. Matches the real
 /// product's text-mode composer: a glass bar with a filled "Send" button that
 /// dims (not disappears) when there's nothing to send.
+///
+/// `isStreaming`/`onStop` are Chat-only (the orchestrator's in-flight turn
+/// can be cancelled via `POST /api/cancel`) — Agent Chat doesn't pass them,
+/// so its composer stays plain Send-only, matching its own separate
+/// stop-a-running-agent mechanism (Section 6's `CancelAgentTaskUseCase`,
+/// a device-row action, not a composer button).
 struct ChatComposerBar: View {
     @Binding var text: String
     let isSendDisabled: Bool
+    var isStreaming: Bool = false
     let onSend: () -> Void
+    var onStop: () -> Void = {}
 
     var body: some View {
         HStack(alignment: .bottom, spacing: TIAGASpacing.sm) {
@@ -28,14 +36,17 @@ struct ChatComposerBar: View {
                 .padding(.horizontal, TIAGASpacing.sm)
                 .padding(.vertical, TIAGASpacing.sm)
 
-            Button("Send", action: onSend)
+            Button(isStreaming ? "Stop" : "Send", action: isStreaming ? onStop : onSend)
                 .font(TIAGATypography.body)
                 .foregroundStyle(TIAGAColor.textOnAccent)
                 .padding(.horizontal, TIAGASpacing.md)
                 .padding(.vertical, TIAGASpacing.sm)
-                .background(TIAGAColor.brandAccent.opacity(isSendDisabled ? 0.3 : 0.8))
+                .background(
+                    (isStreaming ? TIAGAColor.statusDanger : TIAGAColor.brandAccent)
+                        .opacity(isStreaming ? 0.8 : (isSendDisabled ? 0.3 : 0.8))
+                )
                 .clipShape(RoundedRectangle(cornerRadius: TIAGARadius.md, style: .continuous))
-                .disabled(isSendDisabled)
+                .disabled(!isStreaming && isSendDisabled)
         }
         .padding(TIAGASpacing.sm)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: TIAGARadius.lg, style: .continuous))
@@ -48,7 +59,10 @@ struct ChatComposerBar: View {
 
 #Preview {
     @Previewable @State var text = ""
-    return ChatComposerBar(text: $text, isSendDisabled: text.isEmpty, onSend: {})
-        .padding()
-        .background(TIAGAColor.background)
+    return VStack(spacing: TIAGASpacing.lg) {
+        ChatComposerBar(text: $text, isSendDisabled: text.isEmpty, onSend: {})
+        ChatComposerBar(text: .constant(""), isSendDisabled: true, isStreaming: true, onSend: {}, onStop: {})
+    }
+    .padding()
+    .background(TIAGAColor.background)
 }
