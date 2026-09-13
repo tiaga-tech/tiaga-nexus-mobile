@@ -12,10 +12,16 @@ import Foundation
 final class RemoteAuthSessionRepository: AuthSessionRepository {
     private let apiClient: TIAGAAPIClient
     private let cookieStore: SessionCookieStore
+    private let eventBus: RemoteEventBus
 
-    init(apiClient: TIAGAAPIClient = TIAGAAPIClient(), cookieStore: SessionCookieStore = SessionCookieStore()) {
+    init(
+        apiClient: TIAGAAPIClient = TIAGAAPIClient(),
+        cookieStore: SessionCookieStore = SessionCookieStore(),
+        eventBus: RemoteEventBus = .shared
+    ) {
         self.apiClient = apiClient
         self.cookieStore = cookieStore
+        self.eventBus = eventBus
     }
 
     func restoreSession() async throws -> Account? {
@@ -80,8 +86,16 @@ final class RemoteAuthSessionRepository: AuthSessionRepository {
         // its full 180-day sliding expiry. `defer` guarantees the local
         // clear still happens even if this call fails, matching
         // `FakeAuthSessionRepository`'s "local state clears unconditionally"
-        // business rule.
-        defer { cookieStore.clearSession() }
+        // business rule. Disconnecting the shared event bus here too is
+        // what lets logging into a *different* account (without an app
+        // restart) actually receive that account's live updates — see
+        // `RemoteEventBus.disconnect()`'s doc comment for why the
+        // connection otherwise silently keeps running under the old
+        // session's cookie.
+        defer {
+            cookieStore.clearSession()
+            eventBus.disconnect()
+        }
         try await apiClient.postExpectingNoContent("auth/logout")
     }
 }
