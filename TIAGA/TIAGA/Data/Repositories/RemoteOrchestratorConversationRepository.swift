@@ -168,9 +168,32 @@ final class RemoteOrchestratorConversationRepository: OrchestratorConversationRe
         }
         guard !alreadyConnected else { return }
 
-        Task {
-            await self.seed()
-            for await data in self.eventBus.events(ofTypes: Self.relevantEventTypes) {
+        // `[weak self]` must stay weak for the *entire* closure, including
+        // every loop iteration below — an outer `guard let self` here would
+        // shadow it with a permanently-strong local for the rest of the
+        // closure, which is exactly what caused the bug this fixes: this
+        // Task holding a strong reference to `self` for as long as the
+        // shared EventBus stream keeps yielding (forever — it only
+        // terminates on logout). That kept every past ChatViewModel's
+        // repository alive as a "zombie": still registered with
+        // RemoteEventBus, still reacting to every future turn_start/
+        // turn_end, even after the screen (and the ChatViewModel that
+        // nominally owned it) was long gone. Confirmed via NSLog + `log
+        // stream` around ChatViewModel's init/deinit: the view model itself
+        // deallocates correctly on navigating away, but this Task's strong
+        // self-capture silently kept the *repository* — and its
+        // independent `isReplyStreaming` flag — alive and subscribed
+        // indefinitely. Re-checking `guard let self` fresh on every
+        // iteration (rather than once, before the loop) lets this Task —
+        // and the repository — actually die once nothing else references
+        // it, ending its EventBus subscription (AsyncStream teardown fires
+        // `onTermination`) instead of leaking one zombie subscriber per
+        // Chat visit.
+        Task { [weak self] in
+            guard let eventBus = self?.eventBus else { return }
+            await self?.seed()
+            for await data in eventBus.events(ofTypes: Self.relevantEventTypes) {
+                guard let self else { return }
                 await self.handle(data)
             }
         }

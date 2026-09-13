@@ -122,8 +122,16 @@ final class RemoteAgentRosterRepository: AgentRosterRepository, @unchecked Senda
         }
         guard !alreadyConnected else { return }
 
-        Task {
-            for await data in self.eventBus.events(ofType: "task") {
+        // `self` must stay weak for the whole closure — an outer
+        // `guard let self` before the loop would shadow it with a
+        // permanently-strong local, leaking a "zombie" repository instance
+        // that stays subscribed forever. See the identical fix and full
+        // explanation in RemoteOrchestratorConversationRepository
+        // .connectIfNeeded(), confirmed with NSLog + `log stream`.
+        Task { [weak self] in
+            guard let eventBus = self?.eventBus else { return }
+            for await data in eventBus.events(ofType: "task") {
+                guard let self else { return }
                 self.handle(data)
             }
         }

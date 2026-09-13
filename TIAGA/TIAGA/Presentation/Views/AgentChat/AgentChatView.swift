@@ -82,6 +82,15 @@ struct AgentChatView: View {
                 .onChange(of: viewModel.transcript) { _, _ in
                     Task { await scrollToBottom(proxy) }
                 }
+                // The status pill header only appears once `observeAgent`'s
+                // async fetch resolves — arriving after the transcript has
+                // already settled would shrink the scroll view's available
+                // height from the top without anything here re-anchoring
+                // to the (now-shifted) bottom. Re-scrolling on this change
+                // too closes that gap.
+                .onChange(of: viewModel.agent) { _, _ in
+                    Task { await scrollToBottom(proxy) }
+                }
             }
 
             if let message = viewModel.sendErrorMessage {

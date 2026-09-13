@@ -894,6 +894,41 @@ everywhere-else selection rule every `Remote*Repository` follows.
         open. Verified with a fixture screenshot
         (`docs/screenshots/agent-chat-padding-scroll.png`) showing both
         fixed at once.
+      - **Follow-up 2 (real bug, "bad bug" per the user): messaging an
+        agent left the *orchestrator's* Chat screen permanently stuck
+        showing "TIAGA is replying…", fixable only by a full app restart**
+        — confirmed via the user's own account that the real backend was
+        never actually stuck (the web client showed the orchestrator idle
+        the whole time), so this was 100% a mobile-client bug, not a
+        backend one. Root cause: every `connectIfNeeded()` across the three
+        SSE-backed repositories (`RemoteOrchestratorConversationRepository`,
+        `RemoteAgentRosterRepository`, `RemoteAgentConversationRepository`)
+        opened its one-shot `Task { for await data in eventBus.events(...)
+        { ... } }` *without* `[weak self]` — since that loop only ends via
+        `RemoteEventBus.disconnect()` (logout) or app termination, the Task
+        held a strong reference to the repository *forever*. Every visit to
+        Chat tore down the `ChatViewModel` correctly (confirmed with NSLog
+        + `log stream` around its own init/deinit) but silently leaked its
+        `RemoteOrchestratorConversationRepository` as a permanent "zombie"
+        — still registered with `RemoteEventBus`, still reacting to every
+        future `turn_start`/`turn_end` with its own independent
+        `isReplyStreaming` flag that nothing was watching anymore. Confirmed
+        the exact mechanism was real (not just plausible) by adding a
+        temporary `deinit` log: before the fix, it never fired across
+        repeated Chat visits; after adding `[weak self]` (re-checked fresh
+        on *every* loop iteration, not just once before it — an initial
+        attempt that shadowed `self` as a permanently-strong local before
+        the loop didn't actually fix anything), the repository correctly
+        deinits every time the operator navigates away. Fixed the identical
+        pattern in `RemoteAgentRosterRepository` and
+        `RemoteAgentConversationRepository` too, found by inspection once
+        the pattern was known. **Caveat**: this closes a confirmed,
+        genuine leak that is a very plausible contributor, but the exact
+        trigger for the specific "turn_start with no matching turn_end"
+        sequence wasn't reproduced live (doing so needs a real message to a
+        real agent, real LLM cost, and taps this app can't script without
+        the user's own device) — flagged to the user as a leak fixed with
+        real confidence, not a root cause proven beyond doubt.
 - [x] `RemoteDeviceFleetRepository` (Devices) — device list
       (`GET /api/devices`) + the permissions-required toggle
       (`PUT /api/devices/{id}`). **Revision:** checked `DevicesController.cs`/
