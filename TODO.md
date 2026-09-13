@@ -882,6 +882,18 @@ everywhere-else selection rule every `Remote*Repository` follows.
         (no way to discover a real agent's id without tapping, which
         `simctl` can't do) — sending a message, the stop button, and
         leaving the screen (handback) are for the user to verify.
+      - **Follow-up (two bugs found by the user)**: (1) no gap between the
+        status pill header and the transcript below it — the header block
+        had top padding but no bottom padding. (2) `AgentChatView` opened
+        scrolled to the top of history, the exact same bug already found
+        and fixed on the orchestrator's `ChatView` — this screen was built
+        separately and never got that fix. Applied the identical fix:
+        `.defaultScrollAnchor(.bottom)` for an invisible initial position
+        plus a bottom-anchored `ScrollViewReader`/`scrollTo` retry (with the
+        same `LazyVStack`-timing rationale) for live updates while already
+        open. Verified with a fixture screenshot
+        (`docs/screenshots/agent-chat-padding-scroll.png`) showing both
+        fixed at once.
 - [x] `RemoteDeviceFleetRepository` (Devices) — device list
       (`GET /api/devices`) + the permissions-required toggle
       (`PUT /api/devices/{id}`). **Revision:** checked `DevicesController.cs`/

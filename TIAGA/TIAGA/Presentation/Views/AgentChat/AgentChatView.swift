@@ -47,29 +47,42 @@ struct AgentChatView: View {
                 }
                 .padding(.horizontal, TIAGASpacing.lg)
                 .padding(.top, TIAGASpacing.sm)
+                .padding(.bottom, TIAGASpacing.sm)
             }
 
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: TIAGASpacing.sm) {
-                    if viewModel.transcript.isEmpty {
-                        Text("No messages with \(viewModel.agent?.name ?? "this agent") yet.")
-                            .font(TIAGATypography.subheadline)
-                            .foregroundStyle(TIAGAColor.textTertiary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, TIAGASpacing.xl)
-                    } else {
-                        ForEach(viewModel.transcript) { message in
-                            TranscriptRow(message: message)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: TIAGASpacing.sm) {
+                        if viewModel.transcript.isEmpty {
+                            Text("No messages with \(viewModel.agent?.name ?? "this agent") yet.")
+                                .font(TIAGATypography.subheadline)
+                                .foregroundStyle(TIAGAColor.textTertiary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, TIAGASpacing.xl)
+                        } else {
+                            ForEach(viewModel.transcript) { message in
+                                TranscriptRow(message: message)
+                            }
                         }
+
+                        // See ChatView for why: real history can be long
+                        // enough to open scrolled to the top otherwise.
+                        Color.clear.frame(height: 1).id(Self.bottomAnchorID)
                     }
+                    .padding(TIAGASpacing.lg)
                 }
-                .padding(TIAGASpacing.lg)
+                // Positions the scroll view at the bottom from its very
+                // first rendered frame — no visible jump, matching ChatView.
+                .defaultScrollAnchor(.bottom)
+                .scrollDismissesKeyboard(.interactively)
+                // See ChatView for why: the side menu's swipe-to-open gesture
+                // shares this touch, and a human swipe is never perfectly
+                // horizontal.
+                .scrollDisabled(isSideMenuOpenGestureActive)
+                .onChange(of: viewModel.transcript) { _, _ in
+                    Task { await scrollToBottom(proxy) }
+                }
             }
-            .scrollDismissesKeyboard(.interactively)
-            // See ChatView for why: the side menu's swipe-to-open gesture
-            // shares this touch, and a human swipe is never perfectly
-            // horizontal.
-            .scrollDisabled(isSideMenuOpenGestureActive)
 
             if let message = viewModel.sendErrorMessage {
                 Text(message)
@@ -159,6 +172,19 @@ struct AgentChatView: View {
         .onDisappear {
             Task { await viewModel.endChat() }
         }
+    }
+
+    private static let bottomAnchorID = "bottom"
+
+    /// See `ChatView.scrollToBottom(_:)` — the same `LazyVStack` layout-
+    /// timing fix, retrying a couple of times shortly after a transcript
+    /// change so it lands at the true bottom once layout has settled.
+    private func scrollToBottom(_ proxy: ScrollViewProxy) async {
+        proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
     }
 }
 
