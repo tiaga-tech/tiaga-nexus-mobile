@@ -71,13 +71,13 @@ struct ChatView: View {
                 // recognize the same touch at once. See FleetConsoleRootView.
                 .scrollDisabled(isSideMenuOpenGestureActive)
                 .task {
-                    proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
+                    await scrollToBottom(proxy)
                 }
                 .onChange(of: viewModel.transcript) { _, _ in
-                    proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
+                    Task { await scrollToBottom(proxy) }
                 }
                 .onChange(of: viewModel.isStreaming) { _, _ in
-                    proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
+                    Task { await scrollToBottom(proxy) }
                 }
             }
 
@@ -101,9 +101,13 @@ struct ChatView: View {
 
             ChatComposerBar(
                 text: $viewModel.composerText,
-                isSendDisabled: viewModel.composerText.isEmpty || viewModel.isStreaming,
+                isSendDisabled: viewModel.composerText.isEmpty,
+                isStreaming: viewModel.isStreaming,
                 onSend: {
                     Task { await viewModel.send() }
+                },
+                onStop: {
+                    Task { await viewModel.stop() }
                 }
             )
             .id(viewModel.composerResetToken)
@@ -154,7 +158,19 @@ struct ChatView: View {
                 }
                 .buttonStyle(.glass)
                 .buttonBorderShape(.circle)
-                .accessibilityLabel("Browse dynamic UI cards")
+                .overlay(alignment: .topTrailing) {
+                    if viewModel.hasUnseenDynamicUICardUpdate {
+                        Circle()
+                            .fill(TIAGAColor.statusDanger)
+                            .frame(width: 10, height: 10)
+                            .offset(x: 2, y: -2)
+                    }
+                }
+                .accessibilityLabel(
+                    viewModel.hasUnseenDynamicUICardUpdate
+                        ? "Browse dynamic UI cards, new card available"
+                        : "Browse dynamic UI cards"
+                )
 
                 Button {
                     showsResetConfirmation = true
@@ -182,6 +198,21 @@ struct ChatView: View {
     }
 
     private static let bottomAnchorID = "bottom"
+
+    /// A single `scrollTo` right after real (potentially long) history
+    /// loads can land mid-conversation instead of at the bottom: the
+    /// `LazyVStack` above the anchor hasn't measured all of the newly-
+    /// inserted rows yet, so `ScrollViewReader` computes the target
+    /// position from an incomplete layout. Retrying a couple of times
+    /// shortly after — by which point layout has settled — corrects it
+    /// without giving up `LazyVStack`'s laziness for a long conversation.
+    private func scrollToBottom(_ proxy: ScrollViewProxy) async {
+        proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
+    }
 }
 
 #Preview {

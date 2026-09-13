@@ -741,7 +741,29 @@ everywhere-else selection rule every `Remote*Repository` follows.
         clearing the bound string doesn't always reset the underlying
         multi-line text view. Fixed by giving the composer an `.id()` tied
         to a counter bumped synchronously with the clear, forcing a fresh
-        view instance on every send.
+        view instance on every send. **Follow-up**: even with the fix, one
+        more scroll-to-bottom bug turned up against a genuinely long real
+        conversation — a single `scrollTo` fires before the `LazyVStack`
+        above the anchor finishes measuring newly-loaded rows, so it can
+        land mid-conversation. Retrying the same `scrollTo` a couple of
+        times shortly after (by which point layout has settled) fixed it
+        without giving up `LazyVStack`'s laziness for a long history.
+      - **Two features added on top, both mapping directly to real,
+        already-existing backend endpoints**: (1) the composer's Send
+        button becomes a Stop button while `isStreaming`, calling the real
+        `POST /api/cancel` (`ChatController.Cancel` — "Cancel the
+        orchestrator's in-flight turn (history kept, cancellation noted)");
+        `FakeOrchestratorConversationRepository.send` was restructured to
+        be genuinely fire-and-forget (an internally-tracked, cancellable
+        `Task`) to match, rather than blocking the caller for its whole
+        canned-reply delay. (2) A notification dot on the dynamic-UI-
+        card-browser icon when the orchestrator creates/updates a card,
+        cleared on opening the browser — `RemoteOrchestratorConversationRepository`
+        now also subscribes to `type: "ui"` events (added to its shared
+        `RemoteEventBus` subscription) purely as a "something changed"
+        pulse; the card's actual content is still only fetched on demand
+        via `GET /api/cards` when the browser opens, matching the existing
+        `fetchDynamicUICardHistory` design.
       - **Not in this pass**: Agent Chat (`RemoteAgentRosterRepository`/
         `RemoteAgentConversationRepository`) — its own direct user↔agent
         protocol (`agent_chat`/`agent_chat_state` events) needs its own

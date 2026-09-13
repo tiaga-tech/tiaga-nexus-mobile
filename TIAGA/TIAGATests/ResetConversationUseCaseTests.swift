@@ -32,6 +32,12 @@ private final class StubResetConversationRepository: OrchestratorConversationRep
     func fetchDynamicUICardHistory() async throws -> [DynamicUICard] { [] }
 
     func removeDynamicUICard(id: String) async throws {}
+
+    func cancelCurrentTurn() async throws {}
+
+    func observeDynamicUICardUpdates() -> AsyncStream<Void> {
+        AsyncStream { $0.finish() }
+    }
 }
 
 struct ResetConversationUseCaseTests {

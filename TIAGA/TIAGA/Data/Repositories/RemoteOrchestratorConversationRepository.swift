@@ -38,12 +38,16 @@ final class RemoteOrchestratorConversationRepository: OrchestratorConversationRe
     private let apiClient: TIAGAAPIClient
     private let eventBus: RemoteEventBus
 
-    /// Every event type this repository's transcript/usage/busy-state cares
-    /// about — matches `useConversation.ts`'s `es.onmessage` switch, minus
-    /// the types routed elsewhere (`ui`/`task`/`agent_chat*`/`processes`/
-    /// `device`/`permission`/`hello`), which belong to other screens/repos.
+    /// Every event type this repository's transcript/usage/busy-state/
+    /// dynamic-UI-card-notification cares about — matches
+    /// `useConversation.ts`'s `es.onmessage` switch, minus the types routed
+    /// elsewhere (`task`/`agent_chat*`/`processes`/`device`/`permission`/
+    /// `hello`), which belong to other screens/repos. `ui` is included here
+    /// (unlike the rest of a dynamic UI card's actual content, which this
+    /// repository only fetches on demand via `GET /api/cards`) purely to
+    /// pulse the "something new" notification signal.
     private static let relevantEventTypes: Set<String> = [
-        "voice", "tool", "error", "turn_start", "turn_end", "compaction", "usage", "cancelled",
+        "voice", "tool", "error", "turn_start", "turn_end", "compaction", "usage", "cancelled", "ui",
     ]
 
     private let lock = NSLock()
@@ -54,6 +58,7 @@ final class RemoteOrchestratorConversationRepository: OrchestratorConversationRe
     private var isConnected = false
     private var transcriptContinuations: [UUID: AsyncStream<[ChatMessage]>.Continuation] = [:]
     private var usageContinuations: [UUID: AsyncStream<ConversationContextUsage>.Continuation] = [:]
+    private var dynamicUICardUpdateContinuations: [UUID: AsyncStream<Void>.Continuation] = [:]
 
     init(apiClient: TIAGAAPIClient = TIAGAAPIClient(), eventBus: RemoteEventBus = .shared) {
         self.apiClient = apiClient
@@ -133,6 +138,25 @@ final class RemoteOrchestratorConversationRepository: OrchestratorConversationRe
 
     func removeDynamicUICard(id: String) async throws {
         try await apiClient.deleteExpectingNoContent("ui/\(id)")
+    }
+
+    func cancelCurrentTurn() async throws {
+        do {
+            try await apiClient.postExpectingNoContent("cancel")
+        } catch {
+            throw CancelConversationError.cancelFailed
+        }
+    }
+
+    func observeDynamicUICardUpdates() -> AsyncStream<Void> {
+        connectIfNeeded()
+        let id = UUID()
+        return AsyncStream { continuation in
+            self.lock.withLock { self.dynamicUICardUpdateContinuations[id] = continuation }
+            continuation.onTermination = { [weak self] _ in
+                self?.lock.withLock { self?.dynamicUICardUpdateContinuations[id] = nil }
+            }
+        }
     }
 
     // MARK: - Connection
@@ -228,6 +252,12 @@ final class RemoteOrchestratorConversationRepository: OrchestratorConversationRe
             if event.scope == "orchestrator", let pct = event.pct {
                 lock.withLock { contextUsageFraction = pct / 100 }
                 publishContextUsage()
+            }
+
+        case "ui":
+            let continuations = lock.withLock { Array(dynamicUICardUpdateContinuations.values) }
+            for continuation in continuations {
+                continuation.yield(())
             }
 
         default:

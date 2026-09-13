@@ -29,6 +29,7 @@ final class FakeOrchestratorConversationRepository: OrchestratorConversationRepo
     private var dynamicUICards: [DynamicUICard]
     private var contextUsageFraction: Double
     private var isReplyStreaming = false
+    private var replyTask: Task<Void, Never>?
     private var transcriptContinuations: [UUID: AsyncStream<[ChatMessage]>.Continuation] = [:]
     private var usageContinuations: [UUID: AsyncStream<ConversationContextUsage>.Continuation] = [:]
 
@@ -158,24 +159,47 @@ final class FakeOrchestratorConversationRepository: OrchestratorConversationRepo
         publishTranscript()
         publishContextUsage()
 
-        // The fake "streams" for a moment so the composer visibly enters its
-        // busy state before the canned reply lands.
-        try? await Task.sleep(nanoseconds: responseDelayNanoseconds)
+        // Fire-and-forget, matching the real backend (and
+        // RemoteOrchestratorConversationRepository) — `send` returns once
+        // accepted, not once the reply lands, so a Stop button tapped
+        // during the "streaming" delay below can actually cancel this Task
+        // rather than just leaving the caller's own `await` hanging.
+        let task = Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(nanoseconds: self.responseDelayNanoseconds)
+            guard !Task.isCancelled else { return }
 
-        let replyAt = Date()
-        lock.withLock {
-            messages.append(
-                ChatMessage(
-                    role: .orchestrator,
-                    text: Self.reply(for: messages.count),
-                    sentAt: replyAt
+            let replyAt = Date()
+            self.lock.withLock {
+                self.messages.append(
+                    ChatMessage(
+                        role: .orchestrator,
+                        text: Self.reply(for: self.messages.count),
+                        sentAt: replyAt
+                    )
                 )
-            )
-            contextUsageFraction = Self.nextContextUsage(after: contextUsageFraction)
+                self.contextUsageFraction = Self.nextContextUsage(after: self.contextUsageFraction)
+                self.isReplyStreaming = false
+            }
+            self.publishTranscript()
+            self.publishContextUsage()
+        }
+        lock.withLock { replyTask = task }
+    }
+
+    func cancelCurrentTurn() async throws {
+        lock.withLock {
+            replyTask?.cancel()
+            replyTask = nil
             isReplyStreaming = false
         }
         publishTranscript()
-        publishContextUsage()
+    }
+
+    /// No live simulation — nothing in a Preview or a test creates a
+    /// dynamic UI card out from under the fixture, so this never fires.
+    func observeDynamicUICardUpdates() -> AsyncStream<Void> {
+        AsyncStream { _ in }
     }
 
     func observeTranscript() -> AsyncStream<[ChatMessage]> {

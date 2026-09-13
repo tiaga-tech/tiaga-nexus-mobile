@@ -18,6 +18,10 @@ final class ChatViewModel: ObservableObject {
     @Published private(set) var resetErrorMessage: String?
     @Published private(set) var dynamicCardHistory: [DynamicUICard] = []
     @Published private(set) var dynamicCardHistoryErrorMessage: String?
+    /// True from the moment the orchestrator creates/updates a dynamic UI
+    /// card until the operator opens the card browser — a notification dot
+    /// on its entry point, cleared by `loadDynamicCardHistory()`.
+    @Published private(set) var hasUnseenDynamicUICardUpdate = false
 
     /// User-entered composer text. Kept on the VM so the DEBUG route override
     /// can seed a realistic populated state for screenshots.
@@ -33,6 +37,7 @@ final class ChatViewModel: ObservableObject {
 
     private let sendUseCase: SendChatMessageUseCase
     private let resetUseCase: ResetConversationUseCase
+    private let cancelUseCase: CancelConversationUseCase
     private let loadDynamicUICardHistoryUseCase: LoadDynamicUICardHistoryUseCase
     private let removeDynamicUICardUseCase: RemoveDynamicUICardUseCase
     private let repository: OrchestratorConversationRepository
@@ -47,6 +52,7 @@ final class ChatViewModel: ObservableObject {
         self.repository = resolvedRepository
         self.sendUseCase = SendChatMessageUseCase(orchestratorRepository: resolvedRepository)
         self.resetUseCase = ResetConversationUseCase(repository: resolvedRepository)
+        self.cancelUseCase = CancelConversationUseCase(repository: resolvedRepository)
         self.loadDynamicUICardHistoryUseCase = LoadDynamicUICardHistoryUseCase(repository: resolvedRepository)
         self.removeDynamicUICardUseCase = RemoveDynamicUICardUseCase(repository: resolvedRepository)
         startObserving()
@@ -68,6 +74,19 @@ final class ChatViewModel: ObservableObject {
         }
     }
 
+    /// Cancels the in-flight turn — called from the composer's Stop button,
+    /// shown in place of Send while `isStreaming`.
+    func stop() async {
+        sendErrorMessage = nil
+        do {
+            try await cancelUseCase.execute()
+        } catch let error as CancelConversationError {
+            sendErrorMessage = error.errorDescription
+        } catch {
+            sendErrorMessage = CancelConversationError.cancelFailed.errorDescription
+        }
+    }
+
     func reset() async {
         resetErrorMessage = nil
         do {
@@ -81,6 +100,7 @@ final class ChatViewModel: ObservableObject {
 
     func loadDynamicCardHistory() async {
         dynamicCardHistoryErrorMessage = nil
+        hasUnseenDynamicUICardUpdate = false
         do {
             dynamicCardHistory = try await loadDynamicUICardHistoryUseCase.execute()
         } catch let error as DynamicUICardHistoryError {
@@ -132,6 +152,13 @@ final class ChatViewModel: ObservableObject {
         Task { [weak self] in
             for await usage in usageStream {
                 self?.contextUsage = usage
+            }
+        }
+
+        let dynamicUICardUpdateStream = repository.observeDynamicUICardUpdates()
+        Task { [weak self] in
+            for await _ in dynamicUICardUpdateStream {
+                self?.hasUnseenDynamicUICardUpdate = true
             }
         }
     }
