@@ -1055,3 +1055,12 @@ comparatively rare event.
   meeting transcription, team workspaces, marketplace, sign-up/beta-application
   forms unless confirmed). If a task here seems to need one of those, stop and
   ask rather than building it.
+- **Test coverage gap found and closed**: a rubric self-check against the
+  actual `UseCases/`/`TIAGATests/` folders (not memory) turned up two Use
+  Cases from Section 5 with zero test coverage —
+  `LoadDynamicUICardHistoryUseCase` and `RemoveDynamicUICardUseCase`. Added
+  `LoadDynamicUICardHistoryUseCaseTests`/`RemoveDynamicUICardUseCaseTests`
+  (2 tests each: succeeds, fails). Every Use Case now has a dedicated test
+  file — worth re-checking this way again before final submission rather
+  than trusting that "it was tested at the time" held for every later
+  addition.
