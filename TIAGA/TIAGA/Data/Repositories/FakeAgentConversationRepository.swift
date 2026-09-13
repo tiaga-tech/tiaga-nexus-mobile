@@ -93,6 +93,12 @@ final class FakeAgentConversationRepository: AgentConversationRepository, @unche
         publishTranscript(for: agentID)
     }
 
+    /// No real fleet/orchestrator concept to affect — a harmless no-op.
+    func interruptActiveTask(for agentID: AgentIdentifier) async throws {}
+
+    /// No real orchestrator to notify — a harmless no-op.
+    func endChat(with agentID: AgentIdentifier) async {}
+
     func observeTranscript(for agentID: AgentIdentifier) -> AsyncStream<[ChatMessage]> {
         AsyncStream { continuation in
             let subscriptionID = UUID()

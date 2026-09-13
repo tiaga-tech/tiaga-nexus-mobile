@@ -799,10 +799,89 @@ everywhere-else selection rule every `Remote*Repository` follows.
         `RemoteAgentConversationRepository`) — its own direct user↔agent
         protocol (`agent_chat`/`agent_chat_state` events) needs its own
         verification pass, kept as a separate PR.
-- [ ] `RemoteAgentRosterRepository` / `RemoteAgentConversationRepository`
-      (Agent Chat) — direct user↔agent chat, routed over the same shared
-      `/api/events` stream via `agent_chat`/`agent_chat_state` events
-      rather than the orchestrator's `voice`/`tool`/etc. types.
+- [x] `RemoteAgentRosterRepository` / `RemoteAgentConversationRepository`
+      (Agent Chat) — direct user↔agent chat. Checked `AgentsController.cs`/
+      `OpenRouterLlmClient.cs`/`AgentManager.cs`/`useAgentChat.ts`/
+      `useFloatingCards.ts` directly — this area diverged from the fixture
+      era's assumptions more than any other live-wiring pass so far.
+      **Revisions:**
+      - **No `GET /api/agents` list endpoint exists.** The agent roster
+        snapshot rides along with dynamic UI cards: `GET /api/cards`
+        returns `{ ui, tasks }`, and `tasks` is the full agent list
+        (`CardsController.List`). `RemoteAgentRosterRepository` decodes
+        `tasks` independently — `RemoteOrchestratorConversationRepository`
+        already decodes the same endpoint's `ui` field for Chat's dynamic
+        cards, and its own doc comment already flagged this exact division
+        of labor back when Chat was built.
+      - **`Agent.pinnedDeviceID: DeviceIdentifier` didn't match the wire**:
+        an agent's payload only ever carries its pinned device's display
+        *name* (and OS), never an actual device id (`CardsController.cs`'s
+        `tasks` projection, every `AgentManager` `task` event) — confirmed
+        nothing in the UI cross-references it against a real `Device`
+        object either. Renamed to `pinnedDeviceName: String` rather than
+        keeping a dishonestly-typed field.
+      - **The stop button was wired to the wrong real endpoint.**
+        `AgentChatViewModel`'s stop button went through
+        `CancelAgentTaskUseCase` → `AgentRosterRepository.cancelActiveTask`
+        → the real `POST /api/agents/{id}/cancel` — but that endpoint
+        *notifies the orchestrator* ("kill this task, tell the
+        orchestrator"), a fleet-wide action this app doesn't otherwise
+        expose anywhere. A direct-chat stop button's real equivalent is
+        `POST /api/agents/{id}/interrupt` ("take over for chat, don't nudge
+        the orchestrator") — confirmed directly in
+        `OpenRouterLlmClient.InterruptAgentForChat`/`CancelAgentInternal`.
+        Added `AgentConversationRepository.interruptActiveTask(for:)` +
+        `InterruptAgentForChatUseCase`, retargeted the stop button to it,
+        and left `cancelActiveTask`/`CancelAgentTaskUseCase` as-is (still a
+        real, correctly-implemented operation — just not one any screen
+        calls today). Unlike `/cancel`, `/interrupt` has no "wrong state"
+        business rule server-side — it always succeeds if the agent exists,
+        even on an already-idle one — so `InterruptAgentForChatUseCase`
+        throws only on a genuine agent-not-found/network failure, not a
+        state-conflict error.
+      - **Added `endChat`/`EndAgentChatUseCase`** (`POST
+        /api/agents/{id}/handback`), called from `AgentChatView.onDisappear`
+        — hands the agent back to orchestrator control when the operator
+        leaves, matching `useAgentChat.ts`'s `close()`. No prior fixture-era
+        concept covered this at all; the screen simply never released
+        control.
+      - **`POST /api/agents/{id}/chat` is synchronous request/response**,
+        not fire-and-forget like the orchestrator's `/api/chat` — it
+        returns the agent's reply directly in the same response. The
+        identical reply can also arrive again over the live
+        `agent_chat` SSE event (published for every other open viewer);
+        `RemoteAgentConversationRepository` dedupes an exact repeat of the
+        transcript's last message, matching `useAgentChat.ts`'s own
+        `appendMsg`. A 409 mid-flight (the agent started running between
+        the roster's own busy pre-check and this POST landing) maps to the
+        same `SendChatMessageError.conversationBusy` the pre-check itself
+        throws; 403/429 maps to `.rejectedByBackend(reason:)`, reusing
+        Chat's existing error case.
+      - **Real fidelity limit, not a client bug**: a tool call made
+        *during* a direct-chat turn is never published live — checked,
+        `ChatWithAgentAsync` emits no `agent_chat` event for one. It only
+        becomes visible via `GetAgentChat`'s persisted history, i.e. the
+        next time that agent's chat reopens.
+      - **Simplification**: the wire also carries a live per-agent context
+        percentage over `type: "usage", scope: "agent"` events, but nothing
+        in this app's UI renders `Agent.contextUsageFraction` anywhere
+        (checked every agent-facing screen) — populated from `listAgents()`'s
+        snapshot only, not a live subscription. Revisit if an Agent Chat
+        context bar gets built.
+      - **The side menu's own agent list was a one-shot snapshot** with no
+        live updates at all outside this same screen's own cancel/delete
+        actions — the exact class of gap already found and fixed for
+        Devices/Permissions/Chat. Added
+        `AgentRosterRepository.observeRosterChanges() -> AsyncStream<Void>`
+        (pulse-only, mirroring `DeviceFleetRepository.observeDeviceChanges()`),
+        driven by the same `task` events `RemoteAgentRosterRepository`
+        already merges for `observeAgent(_:)`.
+      - **Verified against the real account**: the side menu's roster
+        loaded five real agents with their real names and states from
+        `GET /api/cards`. Did not tap into a real agent's own chat myself
+        (no way to discover a real agent's id without tapping, which
+        `simctl` can't do) — sending a message, the stop button, and
+        leaving the screen (handback) are for the user to verify.
 - [x] `RemoteDeviceFleetRepository` (Devices) — device list
       (`GET /api/devices`) + the permissions-required toggle
       (`PUT /api/devices/{id}`). **Revision:** checked `DevicesController.cs`/

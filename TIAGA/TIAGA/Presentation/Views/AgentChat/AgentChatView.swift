@@ -80,7 +80,7 @@ struct AgentChatView: View {
                     .padding(.top, TIAGASpacing.sm)
             }
 
-            if let message = viewModel.cancelErrorMessage {
+            if let message = viewModel.interruptErrorMessage {
                 Text(message)
                     .font(TIAGATypography.caption)
                     .foregroundStyle(TIAGAColor.statusDanger)
@@ -111,11 +111,11 @@ struct AgentChatView: View {
         .navigationTitle(viewModel.agent?.name ?? "Agent")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if viewModel.canCancelActiveTask {
+            if viewModel.canInterruptActiveTask {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         Task {
-                            await viewModel.cancelActiveTask()
+                            await viewModel.interruptActiveTask()
                             onRosterChanged()
                         }
                     } label: {
@@ -152,6 +152,12 @@ struct AgentChatView: View {
                 onRosterChanged()
                 onDeleted()
             }
+        }
+        // Hands the agent back to orchestrator control the moment the
+        // operator leaves this screen — matches the real web client's own
+        // chat-window close behavior (`useAgentChat.ts`'s `close()`).
+        .onDisappear {
+            Task { await viewModel.endChat() }
         }
     }
 }

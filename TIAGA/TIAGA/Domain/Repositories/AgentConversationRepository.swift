@@ -21,4 +21,24 @@ protocol AgentConversationRepository {
     /// The live transcript for one agent's conversation, chronologically
     /// ordered.
     func observeTranscript(for agentID: AgentIdentifier) -> AsyncStream<[ChatMessage]>
+
+    /// Stops the agent's current task WITHOUT notifying the orchestrator, so
+    /// the operator can take over via this direct chat — backs Agent Chat's
+    /// stop button. A distinct real operation from
+    /// `AgentRosterRepository.cancelActiveTask` (which DOES notify the
+    /// orchestrator and is a fleet-wide "kill this task" action not
+    /// currently exposed by any screen in this app): checked directly
+    /// against the real backend's `AgentsController`/`OpenRouterLlmClient`
+    /// — `POST /api/agents/{id}/cancel` vs. `POST /api/agents/{id}/interrupt`
+    /// are genuinely different endpoints. Always succeeds if the agent
+    /// exists — even calling this on an already-idle agent is a harmless
+    /// no-op server-side, so unlike `CancelAgentTaskUseCase` there is no
+    /// "nothing to interrupt" business error to throw.
+    func interruptActiveTask(for agentID: AgentIdentifier) async throws
+
+    /// Ends the direct-chat session and returns the agent to orchestrator
+    /// control — called when the operator leaves Agent Chat. Fire-and-forget
+    /// to match the real backend (`EndAgentChat` has no failure state the
+    /// operator could act on).
+    func endChat(with agentID: AgentIdentifier) async
 }

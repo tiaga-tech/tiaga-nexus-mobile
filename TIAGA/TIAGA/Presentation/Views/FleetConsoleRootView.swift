@@ -62,9 +62,14 @@ struct FleetConsoleRootView: View {
         self.account = account
         self.authViewModel = authViewModel
 
-        let agentRosterRepository = FakeAgentRosterRepository()
+        // Fake*Repository only inside Xcode Previews — everywhere else
+        // (Simulator or a real device) talks to the real backend. See
+        // AGENTS.md's "Live backend" policy.
+        let agentRosterRepository: AgentRosterRepository = ProcessInfo.isRunningInXcodePreview
+            ? FakeAgentRosterRepository() : RemoteAgentRosterRepository()
         _agentRosterRepository = State(initialValue: agentRosterRepository)
-        _agentConversationRepository = State(initialValue: FakeAgentConversationRepository())
+        _agentConversationRepository = State(initialValue: ProcessInfo.isRunningInXcodePreview
+            ? FakeAgentConversationRepository() : RemoteAgentConversationRepository())
         _sideMenuViewModel = StateObject(wrappedValue: SideMenuViewModel(repository: agentRosterRepository))
 
         #if DEBUG

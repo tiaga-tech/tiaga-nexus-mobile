@@ -17,7 +17,7 @@ final class AgentChatViewModel: ObservableObject {
     @Published private(set) var agent: Agent?
     @Published private(set) var transcript: [ChatMessage] = []
     @Published private(set) var sendErrorMessage: String?
-    @Published private(set) var cancelErrorMessage: String?
+    @Published private(set) var interruptErrorMessage: String?
     @Published private(set) var deleteErrorMessage: String?
     /// Flips true once `delete()` succeeds — the View observes this to pop
     /// back out of the now-gone agent's screen.
@@ -26,7 +26,8 @@ final class AgentChatViewModel: ObservableObject {
     @Published var composerText = ""
 
     private let sendUseCase: SendChatMessageUseCase
-    private let cancelUseCase: CancelAgentTaskUseCase
+    private let interruptUseCase: InterruptAgentForChatUseCase
+    private let endChatUseCase: EndAgentChatUseCase
     private let deleteUseCase: DeleteAgentUseCase
     private let agentRosterRepository: AgentRosterRepository
     private let agentConversationRepository: AgentConversationRepository
@@ -43,7 +44,8 @@ final class AgentChatViewModel: ObservableObject {
             agentRosterRepository: agentRosterRepository,
             agentConversationRepository: agentConversationRepository
         )
-        self.cancelUseCase = CancelAgentTaskUseCase(repository: agentRosterRepository)
+        self.interruptUseCase = InterruptAgentForChatUseCase(repository: agentConversationRepository)
+        self.endChatUseCase = EndAgentChatUseCase(repository: agentConversationRepository)
         self.deleteUseCase = DeleteAgentUseCase(repository: agentRosterRepository)
         startObserving()
     }
@@ -52,7 +54,7 @@ final class AgentChatViewModel: ObservableObject {
     /// operator can actually interrupt. A `.compacting` agent has an active
     /// operation too, but per `AgentState.compacting`'s own business rule
     /// it's a self-contained transition that must finish on its own.
-    var canCancelActiveTask: Bool {
+    var canInterruptActiveTask: Bool {
         agent?.state == .running
     }
 
@@ -82,15 +84,22 @@ final class AgentChatViewModel: ObservableObject {
         }
     }
 
-    func cancelActiveTask() async {
-        cancelErrorMessage = nil
+    func interruptActiveTask() async {
+        interruptErrorMessage = nil
         do {
-            try await cancelUseCase.execute(agentID: agentID)
+            try await interruptUseCase.execute(agentID: agentID)
         } catch let error as AgentLifecycleError {
-            cancelErrorMessage = error.errorDescription
+            interruptErrorMessage = error.errorDescription
         } catch {
-            cancelErrorMessage = AgentLifecycleError.noActiveTaskToCancel.errorDescription
+            interruptErrorMessage = AgentLifecycleError.agentNoLongerExists.errorDescription
         }
+    }
+
+    /// Called when the operator leaves this screen — hands the agent back
+    /// to orchestrator control. Fire-and-forget, matching the real
+    /// backend's `EndAgentChat` (see `EndAgentChatUseCase`'s doc comment).
+    func endChat() async {
+        await endChatUseCase.execute(agentID: agentID)
     }
 
     func delete() async {

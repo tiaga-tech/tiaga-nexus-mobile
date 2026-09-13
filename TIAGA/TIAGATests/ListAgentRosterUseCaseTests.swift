@@ -16,7 +16,7 @@ private func makeAgent(
         id: AgentIdentifier(rawValue: id),
         name: id,
         state: state,
-        pinnedDeviceID: DeviceIdentifier(rawValue: "device-1"),
+        pinnedDeviceName: "Device One",
         lastActivitySummary: "doing something",
         lastActivityAt: Date().addingTimeInterval(-minutesAgo * 60),
         contextUsageFraction: 0.1
@@ -34,6 +34,10 @@ private final class StubAgentRosterRepository: AgentRosterRepository {
 
     // Not exercised by this use case — trivial conformance only.
     func observeAgent(_ id: AgentIdentifier) -> AsyncStream<Agent> {
+        AsyncStream { $0.finish() }
+    }
+
+    func observeRosterChanges() -> AsyncStream<Void> {
         AsyncStream { $0.finish() }
     }
 

@@ -144,10 +144,10 @@ What this means in practice:
   feature area** — this section records the *decision*, not a claim that
   every `Remote*Repository` already exists. Check TODO.md for which ones
   are actually built before assuming a screen is live. As of this writing:
-  `RemoteAuthSessionRepository` is done (Login, Waitlist Gate, session
-  restore, logout all talk to the real backend outside Previews); Chat,
-  Agent Chat, Devices, Permissions, and Settings still default to
-  `Fake*Repository` everywhere, unconditionally.
+  Auth, Devices, Permissions, Chat, and Agent Chat are all done (see this
+  file's "Current status" section below for specifics); Settings is the
+  one screen still defaulting to `Fake*Repository` everywhere,
+  unconditionally.
 - Unit tests are unaffected either way: every Use Case test runs against a
   purpose-built fake constructed directly in the test file, regardless of
   what the running app defaults to.
@@ -381,11 +381,12 @@ domain concept).
 
 Live-backend wiring is now underway: `RemoteAuthSessionRepository` (Auth),
 `RemoteDeviceFleetRepository` (Devices), `RemotePermissionRequestRepository`
-(Permissions), and `RemoteOrchestratorConversationRepository` (Chat) all
-talk to the real backend outside Xcode Previews — see `TODO.md`'s "Live
-Backend Wiring" section for each one's own revision notes. Agent Chat and
-Settings still default to `Fake*Repository` unconditionally; those are
-separate, not-yet-started pieces of work. One deliberate deviation from the
+(Permissions), `RemoteOrchestratorConversationRepository` (Chat), and
+`RemoteAgentRosterRepository`/`RemoteAgentConversationRepository` (Agent
+Chat) all talk to the real backend outside Xcode Previews — see `TODO.md`'s
+"Live Backend Wiring" section for each one's own revision notes. Settings
+still defaults to `Fake*Repository` unconditionally; that's the one
+remaining, not-yet-started piece of work. One deliberate deviation from the
 web client: an `.active`, non-admin account with no subscription or credits
 (`hasAccess: false` on `/api/auth/me`) is NOT force-routed to a billing
 paywall the way the web client does — this app has no checkout flow to
