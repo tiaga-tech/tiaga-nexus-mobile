@@ -748,6 +748,16 @@ everywhere-else selection rule every `Remote*Repository` follows.
         land mid-conversation. Retrying the same `scrollTo` a couple of
         times shortly after (by which point layout has settled) fixed it
         without giving up `LazyVStack`'s laziness for a long history.
+        **Follow-up again**: the retry fixed the *final position* but the
+        operator could still see it happen — the screen visibly opened at
+        the top, then jumped to the bottom a moment later. Replaced the
+        initial-load `scrollTo` with SwiftUI's `.defaultScrollAnchor(.bottom)`
+        (iOS 17+), which positions the scroll view at the bottom from its
+        very first rendered frame — no animation to see, matching how other
+        chat apps open already at the latest message. Kept the `onChange`-
+        triggered `scrollTo` (with its retry) for *live* updates while the
+        screen is already open, where an explicit scroll is the correct,
+        expected behavior.
       - **Two features added on top, both mapping directly to real,
         already-existing backend endpoints**: (1) the composer's Send
         button becomes a Stop button while `isStreaming`, calling the real

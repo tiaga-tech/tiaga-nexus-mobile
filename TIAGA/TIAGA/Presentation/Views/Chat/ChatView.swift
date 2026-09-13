@@ -64,15 +64,18 @@ struct ChatView: View {
                     }
                     .padding(TIAGASpacing.lg)
                 }
+                // Positions the scroll view at the bottom from its very
+                // first rendered frame — no visible jump/animation the way
+                // an explicit `scrollTo` call after appearing would show,
+                // matching how other chat apps open already at the latest
+                // message rather than visibly scrolling there.
+                .defaultScrollAnchor(.bottom)
                 .scrollDismissesKeyboard(.interactively)
                 // Otherwise the same swipe that opens the side menu also nudges
                 // this scroll position — a human swipe is never perfectly
                 // horizontal, and .simultaneousGesture deliberately lets both
                 // recognize the same touch at once. See FleetConsoleRootView.
                 .scrollDisabled(isSideMenuOpenGestureActive)
-                .task {
-                    await scrollToBottom(proxy)
-                }
                 .onChange(of: viewModel.transcript) { _, _ in
                     Task { await scrollToBottom(proxy) }
                 }

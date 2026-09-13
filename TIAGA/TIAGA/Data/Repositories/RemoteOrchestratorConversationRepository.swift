@@ -255,6 +255,13 @@ final class RemoteOrchestratorConversationRepository: OrchestratorConversationRe
             }
 
         case "ui":
+            // Checked DynamicUiManager.cs directly: a "ui" event's `action`
+            // is one of "add"/"update"/"remove"/"clear" — only the first
+            // two mean new content worth a notification dot. Without this
+            // check, dismissing or clearing a card (this app's own
+            // `removeDynamicUICard`, or another client's) would pulse the
+            // dot right back on.
+            guard event.action == "add" || event.action == "update" else { break }
             let continuations = lock.withLock { Array(dynamicUICardUpdateContinuations.values) }
             for continuation in continuations {
                 continuation.yield(())
@@ -337,6 +344,9 @@ private struct ChatEventPayload: Decodable {
     let scope: String?
     let pct: Double?
     let state: String?
+    /// Only meaningful for `type: "ui"` here — "add"/"update"/"remove"/
+    /// "clear" (`DynamicUiManager.cs`).
+    let action: String?
 }
 
 private struct ChatRequestBody: Encodable {
