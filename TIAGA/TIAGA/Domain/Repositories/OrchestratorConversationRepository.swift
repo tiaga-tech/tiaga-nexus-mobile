@@ -31,4 +31,21 @@ protocol OrchestratorConversationRepository {
     /// Fetches the orchestrator's dynamic UI card history.
     /// Throws `DynamicUICardHistoryError` on failure.
     func fetchDynamicUICardHistory() async throws -> [DynamicUICard]
+
+    /// Removes one dynamic UI card, both from history and (if still shown)
+    /// live — the real backend persists cards server-side (`GET /api/cards`
+    /// restores them after a reload), so a dismissal has to round-trip, not
+    /// just update local UI state.
+    func removeDynamicUICard(id: String) async throws
+
+    /// Cancels the in-flight turn. Throws `CancelConversationError` on
+    /// failure. History is kept — this only stops the reply, it doesn't
+    /// undo anything already said or done.
+    func cancelCurrentTurn() async throws
+
+    /// Fires (no payload — just a "a new one arrived" pulse) whenever the
+    /// orchestrator creates or updates a dynamic UI card, so the Chat
+    /// screen can show a notification dot on the card-browser entry point
+    /// without needing to have fetched the full history first.
+    func observeDynamicUICardUpdates() -> AsyncStream<Void>
 }

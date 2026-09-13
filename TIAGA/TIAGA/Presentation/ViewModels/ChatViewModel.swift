@@ -18,21 +18,43 @@ final class ChatViewModel: ObservableObject {
     @Published private(set) var resetErrorMessage: String?
     @Published private(set) var dynamicCardHistory: [DynamicUICard] = []
     @Published private(set) var dynamicCardHistoryErrorMessage: String?
+    /// True from the moment the orchestrator creates/updates a dynamic UI
+    /// card until the operator opens the card browser — a notification dot
+    /// on its entry point, cleared by `loadDynamicCardHistory()`.
+    @Published private(set) var hasUnseenDynamicUICardUpdate = false
 
     /// User-entered composer text. Kept on the VM so the DEBUG route override
     /// can seed a realistic populated state for screenshots.
     @Published var composerText = ""
+    /// Bumped every time `send()` clears the composer — `ChatView` applies
+    /// it as the composer's `.id()`. `TextField(axis: .vertical)` has a
+    /// known quirk where clearing the bound string alone doesn't always
+    /// reset the underlying multi-line text view (observed: the old text
+    /// stayed visible after sending). Forcing a fresh view identity on
+    /// every send is a blunt but reliable fix, synchronous with the clear
+    /// itself rather than waiting on the transcript to update.
+    @Published private(set) var composerResetToken = 0
 
     private let sendUseCase: SendChatMessageUseCase
     private let resetUseCase: ResetConversationUseCase
+    private let cancelUseCase: CancelConversationUseCase
     private let loadDynamicUICardHistoryUseCase: LoadDynamicUICardHistoryUseCase
+    private let removeDynamicUICardUseCase: RemoveDynamicUICardUseCase
     private let repository: OrchestratorConversationRepository
 
-    init(repository: OrchestratorConversationRepository = FakeOrchestratorConversationRepository()) {
-        self.repository = repository
-        self.sendUseCase = SendChatMessageUseCase(orchestratorRepository: repository)
-        self.resetUseCase = ResetConversationUseCase(repository: repository)
-        self.loadDynamicUICardHistoryUseCase = LoadDynamicUICardHistoryUseCase(repository: repository)
+    init(repository: OrchestratorConversationRepository? = nil) {
+        // Fake*Repository only inside Xcode Previews — everywhere else
+        // (Simulator or a real device) talks to the real backend. See
+        // AGENTS.md's "Live backend" policy.
+        let resolvedRepository = repository ?? (
+            ProcessInfo.isRunningInXcodePreview ? FakeOrchestratorConversationRepository() : RemoteOrchestratorConversationRepository()
+        )
+        self.repository = resolvedRepository
+        self.sendUseCase = SendChatMessageUseCase(orchestratorRepository: resolvedRepository)
+        self.resetUseCase = ResetConversationUseCase(repository: resolvedRepository)
+        self.cancelUseCase = CancelConversationUseCase(repository: resolvedRepository)
+        self.loadDynamicUICardHistoryUseCase = LoadDynamicUICardHistoryUseCase(repository: resolvedRepository)
+        self.removeDynamicUICardUseCase = RemoveDynamicUICardUseCase(repository: resolvedRepository)
         startObserving()
     }
 
@@ -43,11 +65,25 @@ final class ChatViewModel: ObservableObject {
         do {
             let text = composerText
             composerText = ""
+            composerResetToken += 1
             try await sendUseCase.execute(text: text, to: .orchestrator)
         } catch let error as SendChatMessageError {
             sendErrorMessage = error.errorDescription
         } catch {
             sendErrorMessage = SendChatMessageError.conversationBusy.errorDescription
+        }
+    }
+
+    /// Cancels the in-flight turn — called from the composer's Stop button,
+    /// shown in place of Send while `isStreaming`.
+    func stop() async {
+        sendErrorMessage = nil
+        do {
+            try await cancelUseCase.execute()
+        } catch let error as CancelConversationError {
+            sendErrorMessage = error.errorDescription
+        } catch {
+            sendErrorMessage = CancelConversationError.cancelFailed.errorDescription
         }
     }
 
@@ -64,6 +100,7 @@ final class ChatViewModel: ObservableObject {
 
     func loadDynamicCardHistory() async {
         dynamicCardHistoryErrorMessage = nil
+        hasUnseenDynamicUICardUpdate = false
         do {
             dynamicCardHistory = try await loadDynamicUICardHistoryUseCase.execute()
         } catch let error as DynamicUICardHistoryError {
@@ -73,14 +110,19 @@ final class ChatViewModel: ObservableObject {
         }
     }
 
-    /// Removes one dynamic UI card from the operator's current history. A
-    /// close action is local UI state — the fake repository deliberately has
-    /// no persistence for individual card removal, mirroring the browser's
-    /// dismiss-without-backend-round-trip behaviour.
+    /// Removes one dynamic UI card from the operator's current history.
+    /// Removed from local state immediately (an operator closing a card
+    /// wants it gone now, not after a round-trip), with the backend call
+    /// fired alongside — the real backend persists cards server-side
+    /// (`GET /api/cards` restores them after a reload), so this has to
+    /// actually reach it, not just update local UI state. A failure here
+    /// is low-stakes (the card just might reappear next reload) and isn't
+    /// surfaced as an error for that reason.
     func dismissDynamicCard(id: String) {
         withAnimation(.easeOut(duration: 0.2)) {
             dynamicCardHistory.removeAll { $0.id == id }
         }
+        Task { try? await removeDynamicUICardUseCase.execute(id: id) }
     }
 
     #if DEBUG
@@ -110,6 +152,13 @@ final class ChatViewModel: ObservableObject {
         Task { [weak self] in
             for await usage in usageStream {
                 self?.contextUsage = usage
+            }
+        }
+
+        let dynamicUICardUpdateStream = repository.observeDynamicUICardUpdates()
+        Task { [weak self] in
+            for await _ in dynamicUICardUpdateStream {
+                self?.hasUnseenDynamicUICardUpdate = true
             }
         }
     }

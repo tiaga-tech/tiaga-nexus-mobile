@@ -30,39 +30,59 @@ struct ChatView: View {
         VStack(spacing: 0) {
             header
 
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: TIAGASpacing.sm) {
-                    if viewModel.transcript.isEmpty {
-                        Text("Start a conversation with TIAGA.")
-                            .font(TIAGATypography.subheadline)
-                            .foregroundStyle(TIAGAColor.textTertiary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, TIAGASpacing.xl)
-                    } else {
-                        ForEach(viewModel.transcript) { message in
-                            TranscriptRow(message: message)
-                        }
-                    }
-
-                    if viewModel.isStreaming {
-                        HStack(spacing: TIAGASpacing.xs) {
-                            ProgressView()
-                                .tint(TIAGAColor.brandAccent)
-                            Text("TIAGA is replying…")
-                                .font(TIAGATypography.caption)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: TIAGASpacing.sm) {
+                        if viewModel.transcript.isEmpty {
+                            Text("Start a conversation with TIAGA.")
+                                .font(TIAGATypography.subheadline)
                                 .foregroundStyle(TIAGAColor.textTertiary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, TIAGASpacing.xl)
+                        } else {
+                            ForEach(viewModel.transcript) { message in
+                                TranscriptRow(message: message)
+                            }
                         }
-                        .padding(.top, TIAGASpacing.sm)
+
+                        if viewModel.isStreaming {
+                            HStack(spacing: TIAGASpacing.xs) {
+                                ProgressView()
+                                    .tint(TIAGAColor.brandAccent)
+                                Text("TIAGA is replying…")
+                                    .font(TIAGATypography.caption)
+                                    .foregroundStyle(TIAGAColor.textTertiary)
+                            }
+                            .padding(.top, TIAGASpacing.sm)
+                        }
+
+                        // Scroll anchor — real history can be long enough
+                        // to open scrolled to the top otherwise (invisible
+                        // with the fake's short fixture transcript, but not
+                        // with a real, months-long conversation).
+                        Color.clear.frame(height: 1).id(Self.bottomAnchorID)
                     }
+                    .padding(TIAGASpacing.lg)
                 }
-                .padding(TIAGASpacing.lg)
+                // Positions the scroll view at the bottom from its very
+                // first rendered frame — no visible jump/animation the way
+                // an explicit `scrollTo` call after appearing would show,
+                // matching how other chat apps open already at the latest
+                // message rather than visibly scrolling there.
+                .defaultScrollAnchor(.bottom)
+                .scrollDismissesKeyboard(.interactively)
+                // Otherwise the same swipe that opens the side menu also nudges
+                // this scroll position — a human swipe is never perfectly
+                // horizontal, and .simultaneousGesture deliberately lets both
+                // recognize the same touch at once. See FleetConsoleRootView.
+                .scrollDisabled(isSideMenuOpenGestureActive)
+                .onChange(of: viewModel.transcript) { _, _ in
+                    Task { await scrollToBottom(proxy) }
+                }
+                .onChange(of: viewModel.isStreaming) { _, _ in
+                    Task { await scrollToBottom(proxy) }
+                }
             }
-            .scrollDismissesKeyboard(.interactively)
-            // Otherwise the same swipe that opens the side menu also nudges
-            // this scroll position — a human swipe is never perfectly
-            // horizontal, and .simultaneousGesture deliberately lets both
-            // recognize the same touch at once. See FleetConsoleRootView.
-            .scrollDisabled(isSideMenuOpenGestureActive)
 
             if let message = viewModel.sendErrorMessage {
                 Text(message)
@@ -84,11 +104,16 @@ struct ChatView: View {
 
             ChatComposerBar(
                 text: $viewModel.composerText,
-                isSendDisabled: viewModel.composerText.isEmpty || viewModel.isStreaming,
+                isSendDisabled: viewModel.composerText.isEmpty,
+                isStreaming: viewModel.isStreaming,
                 onSend: {
                     Task { await viewModel.send() }
+                },
+                onStop: {
+                    Task { await viewModel.stop() }
                 }
             )
+            .id(viewModel.composerResetToken)
             .padding(TIAGASpacing.lg)
         }
         .background(TIAGAColor.background)
@@ -136,7 +161,19 @@ struct ChatView: View {
                 }
                 .buttonStyle(.glass)
                 .buttonBorderShape(.circle)
-                .accessibilityLabel("Browse dynamic UI cards")
+                .overlay(alignment: .topTrailing) {
+                    if viewModel.hasUnseenDynamicUICardUpdate {
+                        Circle()
+                            .fill(TIAGAColor.statusDanger)
+                            .frame(width: 10, height: 10)
+                            .offset(x: 2, y: -2)
+                    }
+                }
+                .accessibilityLabel(
+                    viewModel.hasUnseenDynamicUICardUpdate
+                        ? "Browse dynamic UI cards, new card available"
+                        : "Browse dynamic UI cards"
+                )
 
                 Button {
                     showsResetConfirmation = true
@@ -161,6 +198,23 @@ struct ChatView: View {
 
     private var contextColor: Color {
         TIAGAColor.forContextUsage(percentage: viewModel.contextUsage.fraction)
+    }
+
+    private static let bottomAnchorID = "bottom"
+
+    /// A single `scrollTo` right after real (potentially long) history
+    /// loads can land mid-conversation instead of at the bottom: the
+    /// `LazyVStack` above the anchor hasn't measured all of the newly-
+    /// inserted rows yet, so `ScrollViewReader` computes the target
+    /// position from an incomplete layout. Retrying a couple of times
+    /// shortly after — by which point layout has settled — corrects it
+    /// without giving up `LazyVStack`'s laziness for a long conversation.
+    private func scrollToBottom(_ proxy: ScrollViewProxy) async {
+        proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
     }
 }
 

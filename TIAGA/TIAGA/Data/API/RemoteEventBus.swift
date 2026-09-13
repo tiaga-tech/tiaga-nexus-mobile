@@ -32,12 +32,29 @@ nonisolated final class RemoteEventBus: @unchecked Sendable {
     /// own independent stream; the underlying SSE connection is shared and
     /// started lazily on the first subscriber of any type.
     func events(ofType type: String) -> AsyncStream<Data> {
+        events(ofTypes: [type])
+    }
+
+    /// Events of any of several `type`s, merged into one stream — e.g. Chat
+    /// needs `voice`/`tool`/`error`/`turn_start`/`turn_end`/`compaction`/
+    /// `usage`/`cancelled` all funneled together, matching the web client's
+    /// single `es.onmessage` handler branching on `type` rather than one
+    /// subscription per type.
+    func events(ofTypes types: Set<String>) -> AsyncStream<Data> {
         connectIfNeeded()
         let id = UUID()
         return AsyncStream { continuation in
-            self.lock.withLock { self.continuationsByType[type, default: [:]][id] = continuation }
+            self.lock.withLock {
+                for type in types {
+                    self.continuationsByType[type, default: [:]][id] = continuation
+                }
+            }
             continuation.onTermination = { [weak self] _ in
-                self?.lock.withLock { self?.continuationsByType[type]?[id] = nil }
+                self?.lock.withLock {
+                    for type in types {
+                        self?.continuationsByType[type]?[id] = nil
+                    }
+                }
             }
         }
     }
