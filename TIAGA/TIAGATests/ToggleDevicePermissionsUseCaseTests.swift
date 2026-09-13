@@ -27,6 +27,11 @@ private final class StubDeviceFleetRepository: DeviceFleetRepository {
         device.map { [$0] } ?? []
     }
 
+    // Not exercised by this use case — trivial conformance only.
+    func observeDeviceChanges() -> AsyncStream<Void> {
+        AsyncStream { _ in }
+    }
+
     func setPermissionsRequired(_ permissionsRequired: Bool, for id: DeviceIdentifier) async throws {
         lastSetValue = permissionsRequired
     }

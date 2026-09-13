@@ -21,9 +21,15 @@ final class PermissionRequestOverlayViewModel: ObservableObject {
 
     private let reviewPermissionRequestUseCase: ReviewPermissionRequestUseCase
 
-    init(repository: PermissionRequestRepository = FakePermissionRequestRepository()) {
-        self.reviewPermissionRequestUseCase = ReviewPermissionRequestUseCase(repository: repository)
-        startObserving(repository)
+    init(repository: PermissionRequestRepository? = nil) {
+        // Fake*Repository only inside Xcode Previews — everywhere else
+        // (Simulator or a real device) talks to the real backend. See
+        // AGENTS.md's "Live backend" policy.
+        let resolvedRepository = repository ?? (
+            ProcessInfo.isRunningInXcodePreview ? FakePermissionRequestRepository() : RemotePermissionRequestRepository()
+        )
+        self.reviewPermissionRequestUseCase = ReviewPermissionRequestUseCase(repository: resolvedRepository)
+        startObserving(resolvedRepository)
     }
 
     func approve() async {

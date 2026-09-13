@@ -44,13 +44,41 @@ struct PermissionRequestOverlayView: View {
         }
     }
 
+    /// "{requester} on {deviceName} {kind label}" — e.g. "Pip on Mac wants
+    /// to edit a file" — matching `PermissionOverlay.tsx`'s exact structure
+    /// and wording (`KIND_LABEL`), not `request.tool`'s raw identifier
+    /// ("edit", "write", "bash", ...) substituted into a fixed "wants to
+    /// run X on Y" template: the tool name isn't a verb, so that read as
+    /// nonsense ("wants to run edit on Mac") for anything but `.command`.
+    private func titleLine(for request: PermissionRequest) -> Text {
+        Text(request.requester)
+            .font(TIAGATypography.subheadlineEmphasis)
+            .foregroundStyle(TIAGAColor.textPrimary)
+        + Text(" on ")
+        + Text(request.deviceName)
+            .font(TIAGATypography.subheadlineEmphasis)
+            .foregroundStyle(TIAGAColor.textPrimary)
+        + Text(" \(Self.kindLabel(for: request.kind))")
+    }
+
+    /// Matches `PermissionOverlay.tsx`'s `KIND_LABEL` exactly (minus
+    /// `mcp`, which has no domain concept in this app — see Section 8's
+    /// notes on MCP being out of scope).
+    private static func kindLabel(for kind: PermissionRequestKind) -> String {
+        switch kind {
+        case .command: return "wants to run a command"
+        case .write: return "wants to write a file"
+        case .edit: return "wants to edit a file"
+        }
+    }
+
     private func card(for request: PermissionRequest) -> some View {
         VStack(alignment: .leading, spacing: TIAGASpacing.md) {
             VStack(alignment: .leading, spacing: TIAGASpacing.xs) {
-                Text(request.requester)
+                Text("Permission needed")
                     .font(TIAGATypography.headline)
-                    .foregroundStyle(TIAGAColor.textPrimary)
-                Text("wants to run \(request.tool) on \(request.deviceName)")
+                    .foregroundStyle(TIAGAColor.statusWarning)
+                titleLine(for: request)
                     .font(TIAGATypography.subheadline)
                     .foregroundStyle(TIAGAColor.textSecondary)
             }
