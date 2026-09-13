@@ -1,4 +1,4 @@
-# TIAGA Mobile — Fleet Operations Console
+# TIAGA: One agent, all your machines
 
 The iOS companion app for [TIAGA](https://tiaga.tech), a multi-machine AI
 control center that dispatches persistent AI coding agents onto a user's
