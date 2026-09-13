@@ -682,6 +682,27 @@ everywhere-else selection rule every `Remote*Repository` follows.
       route to (Billing is read-only, web-only by design), so that account
       just reaches the Fleet Console with Settings already showing "no
       active plan."
+      **Follow-up (real bug, found by the user switching accounts without
+      restarting the app):** logging out and into a *different* account
+      left Chat/Devices/Permissions with no live updates at all (no
+      "thinking" indicator, no permission overlay) until the app was force-
+      quit and relaunched. Root cause: `RemoteEventBus` opens exactly one
+      `/api/events` connection for the whole process's lifetime
+      (`connectIfNeeded()`'s `isConnected` guard) and never re-reads the
+      cookie jar once that connection is live — so it stayed bound to
+      whichever session was active when it first connected, silently deaf
+      to the new account's events. Checked the real web client
+      (`useConversation.ts`) for how it avoids this: it closes its
+      `EventSource` (`es.close()`) whenever the authenticated shell
+      unmounts and opens a fresh one on remount, so a relogin always gets a
+      new stream. This app's bus is a long-lived singleton with no
+      equivalent unmount signal, so added `RemoteEventBus.disconnect()`
+      (cancels the connection task, finishes every registered
+      continuation, resets the "connected" flag) and call it from
+      `RemoteAuthSessionRepository.logout()`'s existing `defer` block,
+      right alongside the cookie clear. The next `Remote*Repository`
+      subscriber created after login (a fresh `ChatViewModel`, etc.) then
+      opens a brand-new connection that picks up the current cookie.
 - [x] `RemoteOrchestratorConversationRepository` (Chat) — the highest-stakes
       area wired live so far: a real message sent from this app reaches a
       real LLM (real, billed cost) and, if it dispatches a tool call, a real

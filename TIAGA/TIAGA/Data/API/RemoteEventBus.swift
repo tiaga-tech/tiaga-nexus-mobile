@@ -21,6 +21,7 @@ nonisolated final class RemoteEventBus: @unchecked Sendable {
     private let lock = NSLock()
     private var continuationsByType: [String: [UUID: AsyncStream<Data>.Continuation]] = [:]
     private var isConnected = false
+    private var connectionTask: Task<Void, Never>?
 
     init(eventStream: TIAGAEventStream = TIAGAEventStream()) {
         self.eventStream = eventStream
@@ -65,9 +66,9 @@ nonisolated final class RemoteEventBus: @unchecked Sendable {
         }
         guard !alreadyConnected else { return }
 
-        Task { [weak self] in
+        let task = Task { [weak self] in
             while true {
-                guard let self else { return }
+                guard let self, !Task.isCancelled else { return }
                 do {
                     for try await event in self.eventStream.events() {
                         self.dispatch(event.data)
@@ -77,8 +78,39 @@ nonisolated final class RemoteEventBus: @unchecked Sendable {
                     // matching the browser's own `EventSource` auto-reconnect
                     // behavior on a dropped SSE connection.
                 }
+                guard !Task.isCancelled else { return }
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
             }
+        }
+        lock.withLock { connectionTask = task }
+    }
+
+    /// Tears down the current SSE connection and drops every subscriber.
+    /// Call this on logout: the connection above is opened once per process
+    /// and, once live, never re-reads the cookie jar on its own — so
+    /// logging into a *different* account without restarting the app would
+    /// otherwise keep the stream tied to whichever session was active when
+    /// it first connected. Confirmed against the real web client
+    /// (`useConversation.ts`), which gets this for free by closing its
+    /// `EventSource` (`es.close()`) whenever the authenticated shell
+    /// unmounts and opening a fresh one on remount; this app has no
+    /// equivalent unmount signal since the bus is a long-lived singleton,
+    /// so `logout` has to drive it explicitly instead. Finishing every
+    /// continuation (not just cancelling the network task) also guarantees
+    /// a screen still animating off-screen from the old account can't go on
+    /// receiving events meant for whichever account signs in next.
+    func disconnect() {
+        let (task, continuations) = lock.withLock {
+            defer {
+                isConnected = false
+                connectionTask = nil
+                continuationsByType.removeAll()
+            }
+            return (connectionTask, continuationsByType.values.flatMap { $0.values })
+        }
+        task?.cancel()
+        for continuation in continuations {
+            continuation.finish()
         }
     }
 
