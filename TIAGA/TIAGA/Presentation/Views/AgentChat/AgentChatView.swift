@@ -47,29 +47,60 @@ struct AgentChatView: View {
                 }
                 .padding(.horizontal, TIAGASpacing.lg)
                 .padding(.top, TIAGASpacing.sm)
+                .padding(.bottom, TIAGASpacing.sm)
             }
 
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: TIAGASpacing.sm) {
-                    if viewModel.transcript.isEmpty {
-                        Text("No messages with \(viewModel.agent?.name ?? "this agent") yet.")
-                            .font(TIAGATypography.subheadline)
-                            .foregroundStyle(TIAGAColor.textTertiary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, TIAGASpacing.xl)
-                    } else {
-                        ForEach(viewModel.transcript) { message in
-                            TranscriptRow(message: message)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    // A plain VStack, not LazyVStack: a direct chat with one
+                    // agent is nowhere near long enough to need laziness,
+                    // and LazyVStack was the actual cause of the "scrolls to
+                    // a blank area" bug — scrollTo(anchor:) on a lazy stack
+                    // targets an *estimated* position for rows it hasn't
+                    // measured yet, which can overshoot past the real
+                    // (shorter) content into that estimated-but-never-
+                    // rendered space. A fully-measured VStack has no
+                    // estimate to get wrong.
+                    VStack(alignment: .leading, spacing: TIAGASpacing.sm) {
+                        if viewModel.transcript.isEmpty {
+                            Text("No messages with \(viewModel.agent?.name ?? "this agent") yet.")
+                                .font(TIAGATypography.subheadline)
+                                .foregroundStyle(TIAGAColor.textTertiary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, TIAGASpacing.xl)
+                        } else {
+                            ForEach(viewModel.transcript) { message in
+                                TranscriptRow(message: message)
+                            }
                         }
+
+                        // See ChatView for why: real history can be long
+                        // enough to open scrolled to the top otherwise.
+                        Color.clear.frame(height: 1).id(Self.bottomAnchorID)
                     }
+                    .padding(TIAGASpacing.lg)
                 }
-                .padding(TIAGASpacing.lg)
+                // Positions the scroll view at the bottom from its very
+                // first rendered frame — no visible jump, matching ChatView.
+                .defaultScrollAnchor(.bottom)
+                .scrollDismissesKeyboard(.interactively)
+                // See ChatView for why: the side menu's swipe-to-open gesture
+                // shares this touch, and a human swipe is never perfectly
+                // horizontal.
+                .scrollDisabled(isSideMenuOpenGestureActive)
+                .onChange(of: viewModel.transcript) { _, _ in
+                    Task { await scrollToBottom(proxy) }
+                }
+                // The status pill header only appears once `observeAgent`'s
+                // async fetch resolves — arriving after the transcript has
+                // already settled would shrink the scroll view's available
+                // height from the top without anything here re-anchoring
+                // to the (now-shifted) bottom. Re-scrolling on this change
+                // too closes that gap.
+                .onChange(of: viewModel.agent) { _, _ in
+                    Task { await scrollToBottom(proxy) }
+                }
             }
-            .scrollDismissesKeyboard(.interactively)
-            // See ChatView for why: the side menu's swipe-to-open gesture
-            // shares this touch, and a human swipe is never perfectly
-            // horizontal.
-            .scrollDisabled(isSideMenuOpenGestureActive)
 
             if let message = viewModel.sendErrorMessage {
                 Text(message)
@@ -80,7 +111,7 @@ struct AgentChatView: View {
                     .padding(.top, TIAGASpacing.sm)
             }
 
-            if let message = viewModel.cancelErrorMessage {
+            if let message = viewModel.interruptErrorMessage {
                 Text(message)
                     .font(TIAGATypography.caption)
                     .foregroundStyle(TIAGAColor.statusDanger)
@@ -111,11 +142,11 @@ struct AgentChatView: View {
         .navigationTitle(viewModel.agent?.name ?? "Agent")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if viewModel.canCancelActiveTask {
+            if viewModel.canInterruptActiveTask {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         Task {
-                            await viewModel.cancelActiveTask()
+                            await viewModel.interruptActiveTask()
                             onRosterChanged()
                         }
                     } label: {
@@ -153,6 +184,25 @@ struct AgentChatView: View {
                 onDeleted()
             }
         }
+        // Hands the agent back to orchestrator control the moment the
+        // operator leaves this screen — matches the real web client's own
+        // chat-window close behavior (`useAgentChat.ts`'s `close()`).
+        .onDisappear {
+            Task { await viewModel.endChat() }
+        }
+    }
+
+    private static let bottomAnchorID = "bottom"
+
+    /// See `ChatView.scrollToBottom(_:)` — the same `LazyVStack` layout-
+    /// timing fix, retrying a couple of times shortly after a transcript
+    /// change so it lands at the true bottom once layout has settled.
+    private func scrollToBottom(_ proxy: ScrollViewProxy) async {
+        proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
     }
 }
 

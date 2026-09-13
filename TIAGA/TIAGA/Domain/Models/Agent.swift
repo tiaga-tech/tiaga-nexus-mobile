@@ -21,7 +21,12 @@ struct Agent: Identifiable, Equatable {
     let id: AgentIdentifier
     let name: String
     let state: AgentState
-    let pinnedDeviceID: DeviceIdentifier
+    /// The pinned device's display name — not a `DeviceIdentifier`. Checked
+    /// directly against the real backend (`CardsController.cs`'s `tasks`
+    /// projection and every `AgentManager` `task` event): an agent's wire
+    /// payload only ever carries its pinned device's name and OS, never an
+    /// actual device id, so there is no real id here to model.
+    let pinnedDeviceName: String
     let lastActivitySummary: String
     let lastActivityAt: Date
     /// 0...1 — how full this agent's context window is. The same domain

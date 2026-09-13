@@ -799,10 +799,180 @@ everywhere-else selection rule every `Remote*Repository` follows.
         `RemoteAgentConversationRepository`) — its own direct user↔agent
         protocol (`agent_chat`/`agent_chat_state` events) needs its own
         verification pass, kept as a separate PR.
-- [ ] `RemoteAgentRosterRepository` / `RemoteAgentConversationRepository`
-      (Agent Chat) — direct user↔agent chat, routed over the same shared
-      `/api/events` stream via `agent_chat`/`agent_chat_state` events
-      rather than the orchestrator's `voice`/`tool`/etc. types.
+- [x] `RemoteAgentRosterRepository` / `RemoteAgentConversationRepository`
+      (Agent Chat) — direct user↔agent chat. Checked `AgentsController.cs`/
+      `OpenRouterLlmClient.cs`/`AgentManager.cs`/`useAgentChat.ts`/
+      `useFloatingCards.ts` directly — this area diverged from the fixture
+      era's assumptions more than any other live-wiring pass so far.
+      **Revisions:**
+      - **No `GET /api/agents` list endpoint exists.** The agent roster
+        snapshot rides along with dynamic UI cards: `GET /api/cards`
+        returns `{ ui, tasks }`, and `tasks` is the full agent list
+        (`CardsController.List`). `RemoteAgentRosterRepository` decodes
+        `tasks` independently — `RemoteOrchestratorConversationRepository`
+        already decodes the same endpoint's `ui` field for Chat's dynamic
+        cards, and its own doc comment already flagged this exact division
+        of labor back when Chat was built.
+      - **`Agent.pinnedDeviceID: DeviceIdentifier` didn't match the wire**:
+        an agent's payload only ever carries its pinned device's display
+        *name* (and OS), never an actual device id (`CardsController.cs`'s
+        `tasks` projection, every `AgentManager` `task` event) — confirmed
+        nothing in the UI cross-references it against a real `Device`
+        object either. Renamed to `pinnedDeviceName: String` rather than
+        keeping a dishonestly-typed field.
+      - **The stop button was wired to the wrong real endpoint.**
+        `AgentChatViewModel`'s stop button went through
+        `CancelAgentTaskUseCase` → `AgentRosterRepository.cancelActiveTask`
+        → the real `POST /api/agents/{id}/cancel` — but that endpoint
+        *notifies the orchestrator* ("kill this task, tell the
+        orchestrator"), a fleet-wide action this app doesn't otherwise
+        expose anywhere. A direct-chat stop button's real equivalent is
+        `POST /api/agents/{id}/interrupt` ("take over for chat, don't nudge
+        the orchestrator") — confirmed directly in
+        `OpenRouterLlmClient.InterruptAgentForChat`/`CancelAgentInternal`.
+        Added `AgentConversationRepository.interruptActiveTask(for:)` +
+        `InterruptAgentForChatUseCase`, retargeted the stop button to it,
+        and left `cancelActiveTask`/`CancelAgentTaskUseCase` as-is (still a
+        real, correctly-implemented operation — just not one any screen
+        calls today). Unlike `/cancel`, `/interrupt` has no "wrong state"
+        business rule server-side — it always succeeds if the agent exists,
+        even on an already-idle one — so `InterruptAgentForChatUseCase`
+        throws only on a genuine agent-not-found/network failure, not a
+        state-conflict error.
+      - **Added `endChat`/`EndAgentChatUseCase`** (`POST
+        /api/agents/{id}/handback`), called from `AgentChatView.onDisappear`
+        — hands the agent back to orchestrator control when the operator
+        leaves, matching `useAgentChat.ts`'s `close()`. No prior fixture-era
+        concept covered this at all; the screen simply never released
+        control.
+      - **`POST /api/agents/{id}/chat` is synchronous request/response**,
+        not fire-and-forget like the orchestrator's `/api/chat` — it
+        returns the agent's reply directly in the same response. The
+        identical reply can also arrive again over the live
+        `agent_chat` SSE event (published for every other open viewer);
+        `RemoteAgentConversationRepository` dedupes an exact repeat of the
+        transcript's last message, matching `useAgentChat.ts`'s own
+        `appendMsg`. A 409 mid-flight (the agent started running between
+        the roster's own busy pre-check and this POST landing) maps to the
+        same `SendChatMessageError.conversationBusy` the pre-check itself
+        throws; 403/429 maps to `.rejectedByBackend(reason:)`, reusing
+        Chat's existing error case.
+      - **Real fidelity limit, not a client bug**: a tool call made
+        *during* a direct-chat turn is never published live — checked,
+        `ChatWithAgentAsync` emits no `agent_chat` event for one. It only
+        becomes visible via `GetAgentChat`'s persisted history, i.e. the
+        next time that agent's chat reopens.
+      - **Simplification**: the wire also carries a live per-agent context
+        percentage over `type: "usage", scope: "agent"` events, but nothing
+        in this app's UI renders `Agent.contextUsageFraction` anywhere
+        (checked every agent-facing screen) — populated from `listAgents()`'s
+        snapshot only, not a live subscription. Revisit if an Agent Chat
+        context bar gets built.
+      - **The side menu's own agent list was a one-shot snapshot** with no
+        live updates at all outside this same screen's own cancel/delete
+        actions — the exact class of gap already found and fixed for
+        Devices/Permissions/Chat. Added
+        `AgentRosterRepository.observeRosterChanges() -> AsyncStream<Void>`
+        (pulse-only, mirroring `DeviceFleetRepository.observeDeviceChanges()`),
+        driven by the same `task` events `RemoteAgentRosterRepository`
+        already merges for `observeAgent(_:)`.
+      - **Verified against the real account**: the side menu's roster
+        loaded five real agents with their real names and states from
+        `GET /api/cards`. Did not tap into a real agent's own chat myself
+        (no way to discover a real agent's id without tapping, which
+        `simctl` can't do) — sending a message, the stop button, and
+        leaving the screen (handback) are for the user to verify.
+      - **Follow-up (two bugs found by the user)**: (1) no gap between the
+        status pill header and the transcript below it — the header block
+        had top padding but no bottom padding. (2) `AgentChatView` opened
+        scrolled to the top of history, the exact same bug already found
+        and fixed on the orchestrator's `ChatView` — this screen was built
+        separately and never got that fix. Applied the identical fix:
+        `.defaultScrollAnchor(.bottom)` for an invisible initial position
+        plus a bottom-anchored `ScrollViewReader`/`scrollTo` retry (with the
+        same `LazyVStack`-timing rationale) for live updates while already
+        open. Verified with a fixture screenshot
+        (`docs/screenshots/agent-chat-padding-scroll.png`) showing both
+        fixed at once.
+      - **Follow-up 2 (real bug, "bad bug" per the user): messaging an
+        agent left the *orchestrator's* Chat screen permanently stuck
+        showing "TIAGA is replying…", fixable only by a full app restart**
+        — confirmed via the user's own account that the real backend was
+        never actually stuck (the web client showed the orchestrator idle
+        the whole time), so this was 100% a mobile-client bug, not a
+        backend one. Root cause: every `connectIfNeeded()` across the three
+        SSE-backed repositories (`RemoteOrchestratorConversationRepository`,
+        `RemoteAgentRosterRepository`, `RemoteAgentConversationRepository`)
+        opened its one-shot `Task { for await data in eventBus.events(...)
+        { ... } }` *without* `[weak self]` — since that loop only ends via
+        `RemoteEventBus.disconnect()` (logout) or app termination, the Task
+        held a strong reference to the repository *forever*. Every visit to
+        Chat tore down the `ChatViewModel` correctly (confirmed with NSLog
+        + `log stream` around its own init/deinit) but silently leaked its
+        `RemoteOrchestratorConversationRepository` as a permanent "zombie"
+        — still registered with `RemoteEventBus`, still reacting to every
+        future `turn_start`/`turn_end` with its own independent
+        `isReplyStreaming` flag that nothing was watching anymore. Confirmed
+        the exact mechanism was real (not just plausible) by adding a
+        temporary `deinit` log: before the fix, it never fired across
+        repeated Chat visits; after adding `[weak self]` (re-checked fresh
+        on *every* loop iteration, not just once before it — an initial
+        attempt that shadowed `self` as a permanently-strong local before
+        the loop didn't actually fix anything), the repository correctly
+        deinits every time the operator navigates away. Fixed the identical
+        pattern in `RemoteAgentRosterRepository` and
+        `RemoteAgentConversationRepository` too, found by inspection once
+        the pattern was known. **Caveat**: this closes a confirmed,
+        genuine leak that is a very plausible contributor, but the exact
+        trigger for the specific "turn_start with no matching turn_end"
+        sequence wasn't reproduced live (doing so needs a real message to a
+        real agent, real LLM cost, and taps this app can't script without
+        the user's own device) — flagged to the user as a leak fixed with
+        real confidence, not a root cause proven beyond doubt.
+      - **Follow-up 3 (the `[weak self]` fix above wasn't enough — real
+        architectural mismatch, not just a leaky method)**: the user found
+        that repeatedly switching between Chat and Agent Chat, with *no
+        message ever sent*, still made the orchestrator show "replying"
+        stuck, and sometimes Chat's transcript failed to load at all on
+        return. Checked the real web client's own structure this time
+        (`App.tsx`/`MainUI.tsx`): `useConversation()` — the hook owning the
+        orchestrator's live transcript/thinking state — mounts exactly
+        *once*, for the whole authenticated session; Agent Chat there
+        (`AgentChatWindow`) is an overlay panel on top of that
+        always-mounted shell, never a replacement for it. This app's
+        `ChatView()` did the opposite: a fresh `RemoteOrchestratorConversationRepository`
+        (with a fresh SSE subscription and a fresh cached "is thinking"
+        flag) was created and torn down on *every single visit* to the Chat
+        tab — a real mismatch with how the product being modeled actually
+        works, not a bug that a `[weak self]` patch alone could fully fix
+        (it closed the leak, but repeated create/destroy cycles were still
+        inherently race-prone for state meant to track something
+        continuously). Fixed by hoisting `orchestratorConversationRepository`
+        up to `FleetConsoleRootView` as a `@State` property constructed
+        once, exactly mirroring the *already-existing* precedent for
+        `agentRosterRepository`/`agentConversationRepository` (added back
+        when a per-screen fake caused an analogous Agent Chat bug — see
+        that property's own doc comment). `ChatView`/`ChatViewModel` are
+        still constructed fresh per visit (cheap, view-layer only), but now
+        wrap the *same* persistent repository instance every time, so a
+        return visit sees the already-correct cached state immediately
+        instead of racing a fresh `seed()` fetch and a fresh subscription
+        against whatever's left over from the last visit. Verified with the
+        same init/deinit NSLog technique: across four full round-trips
+        (Chat → Devices → Chat) × 2, the repository initializes exactly
+        once and never deinitializes.
+      - **Follow-up 4**: separately, Agent Chat's "scrolls to a blank area"
+        report turned out to have a real, different cause once traced:
+        `LazyVStack` + `ScrollViewReader.scrollTo(anchor:)` targets an
+        *estimated* position for rows it hasn't measured yet, which can
+        overshoot past the real (shorter) content into that
+        estimated-but-never-rendered space — a known limitation, and
+        `ChatView`'s own retry logic only ever mitigated the *opposite*
+        failure mode (landing too early), not this one. Since a direct
+        chat with one agent is nowhere near long enough to need
+        `LazyVStack`'s laziness, switched `AgentChatView`'s transcript to a
+        plain `VStack` — fully measured, no estimate to get wrong — rather
+        than adding more retries on top of an estimation problem.
 - [x] `RemoteDeviceFleetRepository` (Devices) — device list
       (`GET /api/devices`) + the permissions-required toggle
       (`PUT /api/devices/{id}`). **Revision:** checked `DevicesController.cs`/

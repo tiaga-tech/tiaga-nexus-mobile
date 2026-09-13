@@ -55,6 +55,10 @@ private final class StubAgentRosterRepository: AgentRosterRepository {
         AsyncStream { $0.finish() }
     }
 
+    func observeRosterChanges() -> AsyncStream<Void> {
+        AsyncStream { $0.finish() }
+    }
+
     func cancelActiveTask(for id: AgentIdentifier) async throws {}
 
     func delete(_ id: AgentIdentifier) async throws {}
@@ -74,6 +78,10 @@ private final class StubAgentConversationRepository: AgentConversationRepository
     func observeTranscript(for agentID: AgentIdentifier) -> AsyncStream<[ChatMessage]> {
         AsyncStream { $0.finish() }
     }
+
+    func interruptActiveTask(for agentID: AgentIdentifier) async throws {}
+
+    func endChat(with agentID: AgentIdentifier) async {}
 }
 
 struct SendChatMessageUseCaseTests {
@@ -116,7 +124,7 @@ struct SendChatMessageUseCaseTests {
             id: agentID,
             name: "Nova",
             state: .idle,
-            pinnedDeviceID: DeviceIdentifier(rawValue: "device-1"),
+            pinnedDeviceName: "Device One",
             lastActivitySummary: "Waiting for the next instruction",
             lastActivityAt: Date(),
             contextUsageFraction: 0.1
@@ -143,7 +151,7 @@ struct SendChatMessageUseCaseTests {
             id: agentID,
             name: "Atlas",
             state: .running,
-            pinnedDeviceID: DeviceIdentifier(rawValue: "device-1"),
+            pinnedDeviceName: "Device One",
             lastActivitySummary: "Redesigning the landing page",
             lastActivityAt: Date(),
             contextUsageFraction: 0.1
@@ -167,7 +175,7 @@ struct SendChatMessageUseCaseTests {
             id: agentID,
             name: "Comet",
             state: .compacting,
-            pinnedDeviceID: DeviceIdentifier(rawValue: "device-1"),
+            pinnedDeviceName: "Device One",
             lastActivitySummary: "Summarising history to free up context",
             lastActivityAt: Date(),
             contextUsageFraction: 0.97

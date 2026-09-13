@@ -39,6 +39,21 @@ struct FleetConsoleRootView: View {
     /// state. One instance, owned here, fixes that at the source.
     @State private var agentRosterRepository: AgentRosterRepository
     @State private var agentConversationRepository: AgentConversationRepository
+    /// Shared with every `ChatView` this root constructs, for the same
+    /// reason as the two above — and checked directly against the real web
+    /// client this time: `MainUI.tsx` mounts `useConversation()` exactly
+    /// once for the whole authenticated session (Agent Chat there is an
+    /// overlay panel on top of that same always-mounted shell, never a
+    /// replacement for it). A fresh `RemoteOrchestratorConversationRepository`
+    /// per visit to the Chat tab — tearing down and rebuilding its SSE
+    /// subscription and cached "is thinking" state every time — was a real
+    /// architectural mismatch with that, not just one leaky method: it's
+    /// what caused a real, confirmed leak (fixed with `[weak self]`) and,
+    /// even with that fixed, still left repeated create/destroy races that
+    /// could show a stale "replying" state or fail to load on return to
+    /// Chat. One persistent instance, exactly like the two above, removes
+    /// the whole class of bugs rather than patching each symptom.
+    @State private var orchestratorConversationRepository: OrchestratorConversationRepository
     @StateObject private var permissionRequestOverlayViewModel = PermissionRequestOverlayViewModel()
     @State private var selectedRoute: AppRoute
     @State private var isSideMenuOpen: Bool
@@ -62,9 +77,16 @@ struct FleetConsoleRootView: View {
         self.account = account
         self.authViewModel = authViewModel
 
-        let agentRosterRepository = FakeAgentRosterRepository()
+        // Fake*Repository only inside Xcode Previews — everywhere else
+        // (Simulator or a real device) talks to the real backend. See
+        // AGENTS.md's "Live backend" policy.
+        let agentRosterRepository: AgentRosterRepository = ProcessInfo.isRunningInXcodePreview
+            ? FakeAgentRosterRepository() : RemoteAgentRosterRepository()
         _agentRosterRepository = State(initialValue: agentRosterRepository)
-        _agentConversationRepository = State(initialValue: FakeAgentConversationRepository())
+        _agentConversationRepository = State(initialValue: ProcessInfo.isRunningInXcodePreview
+            ? FakeAgentConversationRepository() : RemoteAgentConversationRepository())
+        _orchestratorConversationRepository = State(initialValue: ProcessInfo.isRunningInXcodePreview
+            ? FakeOrchestratorConversationRepository() : RemoteOrchestratorConversationRepository())
         _sideMenuViewModel = StateObject(wrappedValue: SideMenuViewModel(repository: agentRosterRepository))
 
         #if DEBUG
@@ -234,7 +256,7 @@ struct FleetConsoleRootView: View {
     private func detailView(for route: AppRoute) -> some View {
         switch route {
         case .chat:
-            ChatView()
+            ChatView(repository: orchestratorConversationRepository)
         case .agentChat(let agentID):
             AgentChatView(
                 agentID: agentID,

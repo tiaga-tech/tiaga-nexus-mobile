@@ -18,6 +18,10 @@ private final class StubAgentRosterRepository: AgentRosterRepository {
         AsyncStream { $0.finish() }
     }
 
+    func observeRosterChanges() -> AsyncStream<Void> {
+        AsyncStream { $0.finish() }
+    }
+
     func cancelActiveTask(for id: AgentIdentifier) async throws {}
 
     func delete(_ id: AgentIdentifier) async throws {

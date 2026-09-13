@@ -26,7 +26,7 @@ final class FakeAgentRosterRepository: AgentRosterRepository, @unchecked Sendabl
                 id: AgentIdentifier(rawValue: "agent-atlas"),
                 name: "Atlas",
                 state: .running,
-                pinnedDeviceID: DeviceIdentifier(rawValue: "device-home-pc"),
+                pinnedDeviceName: "Home PC",
                 lastActivitySummary: "Redesigning the landing page",
                 lastActivityAt: now.addingTimeInterval(-30),
                 contextUsageFraction: 0.42
@@ -35,7 +35,7 @@ final class FakeAgentRosterRepository: AgentRosterRepository, @unchecked Sendabl
                 id: AgentIdentifier(rawValue: "agent-comet"),
                 name: "Comet",
                 state: .compacting,
-                pinnedDeviceID: DeviceIdentifier(rawValue: "device-work-laptop"),
+                pinnedDeviceName: "Work Laptop",
                 lastActivitySummary: "Summarising history to free up context",
                 lastActivityAt: now.addingTimeInterval(-90),
                 contextUsageFraction: 0.97
@@ -44,7 +44,7 @@ final class FakeAgentRosterRepository: AgentRosterRepository, @unchecked Sendabl
                 id: AgentIdentifier(rawValue: "agent-vega"),
                 name: "Vega",
                 state: .error(reason: "Build failed"),
-                pinnedDeviceID: DeviceIdentifier(rawValue: "device-home-pc"),
+                pinnedDeviceName: "Home PC",
                 lastActivitySummary: "Fix header spacing on the pricing page",
                 lastActivityAt: now.addingTimeInterval(-3600),
                 contextUsageFraction: 0.61
@@ -53,7 +53,7 @@ final class FakeAgentRosterRepository: AgentRosterRepository, @unchecked Sendabl
                 id: AgentIdentifier(rawValue: "agent-nova"),
                 name: "Nova",
                 state: .idle,
-                pinnedDeviceID: DeviceIdentifier(rawValue: "device-server"),
+                pinnedDeviceName: "Server",
                 lastActivitySummary: "Waiting for the next instruction",
                 lastActivityAt: now.addingTimeInterval(-7200),
                 contextUsageFraction: 0.05
@@ -91,6 +91,12 @@ final class FakeAgentRosterRepository: AgentRosterRepository, @unchecked Sendabl
         }
     }
 
+    /// Fixture never changes on its own — no pulses to send. Matches
+    /// `FakeDeviceFleetRepository.observeDeviceChanges()`.
+    func observeRosterChanges() -> AsyncStream<Void> {
+        AsyncStream { _ in }
+    }
+
     func cancelActiveTask(for id: AgentIdentifier) async throws {
         guard let agent = lock.withLock({ agentsByID[id] }) else {
             throw AgentLifecycleError.agentNoLongerExists
@@ -108,7 +114,7 @@ final class FakeAgentRosterRepository: AgentRosterRepository, @unchecked Sendabl
             id: agent.id,
             name: agent.name,
             state: .idle,
-            pinnedDeviceID: agent.pinnedDeviceID,
+            pinnedDeviceName: agent.pinnedDeviceName,
             lastActivitySummary: "Cancelled — waiting for the next instruction",
             lastActivityAt: Date(),
             contextUsageFraction: agent.contextUsageFraction

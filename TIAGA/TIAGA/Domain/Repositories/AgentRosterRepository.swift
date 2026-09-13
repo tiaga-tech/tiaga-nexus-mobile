@@ -18,6 +18,14 @@ protocol AgentRosterRepository {
     /// a send to discover it's blocked.
     func observeAgent(_ id: AgentIdentifier) -> AsyncStream<Agent>
 
+    /// Pulses whenever any agent's state changes elsewhere (another client,
+    /// the orchestrator dispatching or renaming a task) — the side menu's
+    /// roster list re-fetches with `listAgents()` on each pulse rather than
+    /// this stream carrying the data itself, mirroring
+    /// `DeviceFleetRepository.observeDeviceChanges()`'s cheaper "just
+    /// re-fetch" pattern over replicating a full merge for a rare event.
+    func observeRosterChanges() -> AsyncStream<Void>
+
     /// Cancels the agent's current task, returning it to `.idle`. Callers
     /// go through `CancelAgentTaskUseCase`, which enforces the
     /// running/compacting-only business rule before calling this.
