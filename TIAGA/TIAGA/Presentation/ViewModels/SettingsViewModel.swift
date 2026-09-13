@@ -24,11 +24,24 @@ final class SettingsViewModel: ObservableObject {
         let resolvedRepository: AccountRepository
         if let repository {
             resolvedRepository = repository
+        } else if ProcessInfo.isRunningInXcodePreview {
+            resolvedRepository = FakeAccountRepository()
         } else {
             #if DEBUG
-            resolvedRepository = FakeAccountRepository(usageVariant: Self.debugUsageVariantOverride() ?? .subscription)
+            // Fake*Repository only inside Xcode Previews — everywhere else
+            // (Simulator or a real device) talks to the real backend. See
+            // AGENTS.md's "Live backend" policy. The debug usage-variant
+            // override only makes sense against the fixture, so it's
+            // checked first and still wins on a DEBUG build even outside
+            // Previews (screenshot passes launch the real app, not a
+            // Preview canvas).
+            if let debugVariant = Self.debugUsageVariantOverride() {
+                resolvedRepository = FakeAccountRepository(usageVariant: debugVariant)
+            } else {
+                resolvedRepository = RemoteAccountRepository()
+            }
             #else
-            resolvedRepository = FakeAccountRepository()
+            resolvedRepository = RemoteAccountRepository()
             #endif
         }
         self.repository = resolvedRepository

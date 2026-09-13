@@ -1034,10 +1034,52 @@ than replicating `useDevices.ts`'s per-action merge logic
 (`online`/`offline`/`renamed`/`removed`/`updating`) for what's a
 comparatively rare event.
 
-- [ ] `RemoteAccountRepository` (Settings) — usage/plan (`GET /api/billing`)
-      + privacy preference (`GET`/`POST /api/privacy`, remembering the wire
-      field is inverted — `trainingOptOut`, not `improveAIEnabled`; see
-      `PrivacyPreference`'s doc comment).
+- [x] `RemoteAccountRepository` (Settings) — usage/plan (`GET /api/billing`)
+      + privacy preference (`GET`/`POST /api/privacy` — there's no dedicated
+      privacy controller; checked directly, it lives in `ChatController`
+      alongside chat). The last screen off `Fake*Repository`; only Xcode
+      Previews use a fake anywhere in the app now. **Revisions:**
+      - `SettingsViewModel` was the one ViewModel that never got the
+        Preview-vs-Remote switch other screens already had — it always
+        defaulted to `FakeAccountRepository` outside Previews too, silently
+        exempting Settings from the "live everywhere except Previews"
+        policy this whole section is about. Fixed to match every other
+        screen; the `TIAGA_DEBUG_USAGE_VARIANT` screenshot override still
+        works (and still wins) on a DEBUG build, since screenshot passes
+        launch the real running app, not a Preview canvas.
+      - **`GET /api/billing`'s response is richer than the fixture assumed
+        it needed to model**: `upcoming`/`pendingSwitch` (queued periods,
+        scheduled downgrades) exist on the wire specifically so the client
+        can derive `ActivePlan.RenewalStatus`'s precedence — checked
+        `BillingPanel.tsx` directly and confirmed the exact precedence
+        already documented on that type: a pending switch beats queued
+        time beats auto-renew, and "renewing" specifically requires
+        `stripeBilled && autoRenew` together (a non-Stripe-billed plan can
+        have `autoRenew: true` on the wire with nothing actually billing it
+        forward). `role`/`status` also exist on `/api/billing` but are
+        unused — this app already has both from `/api/auth/me`, and
+        `role` there is a single comma-joined string ("admin,developer"),
+        not an array, confirmed by reading the real response directly.
+      - **Real fidelity check, not an assumption**: fetched the real
+        account's actual `/api/billing` response directly (a plain
+        authenticated GET, no side effects) before writing any decode
+        logic, since .NET's default `System.Text.Json` `DateTime`
+        serialization omits the fractional-seconds component when there
+        isn't one and doesn't pad it to a fixed width when there is — a
+        single fixed `ISO8601DateFormatter` configuration isn't guaranteed
+        to parse every value it can send. Added a small dual-attempt parser
+        (with fractional seconds, then without) rather than gambling on one
+        format.
+      - **Verified against the real account**: Settings loaded the real
+        admin-usage dollar figures (session/7-day/30-day/all-time) and "No
+        active plan" correctly — the real account's own `/api/billing`
+        response has `adminUsage` populated and `subscription: null`,
+        matching `UsagePanel.tsx`'s exact precedence. Didn't get a live
+        example of an active `subscription`/queued-period/pending-switch
+        response from this account (it has none), so that branch of the
+        mapping is verified by reading the wire contract and web precedence
+        carefully, not by a live example — flagged here rather than
+        claiming more live coverage than actually happened.
 
 ---
 

@@ -143,11 +143,10 @@ What this means in practice:
 - **Building a `Remote*Repository` is its own, separate piece of work per
   feature area** — this section records the *decision*, not a claim that
   every `Remote*Repository` already exists. Check TODO.md for which ones
-  are actually built before assuming a screen is live. As of this writing:
-  Auth, Devices, Permissions, Chat, and Agent Chat are all done (see this
-  file's "Current status" section below for specifics); Settings is the
-  one screen still defaulting to `Fake*Repository` everywhere,
-  unconditionally.
+  are actually built before assuming a screen is live. As of this writing,
+  every screen is live (Auth, Devices, Permissions, Chat, Agent Chat,
+  Settings — see this file's "Current status" section below for specifics);
+  `Fake*Repository` is now Previews-only everywhere in the app.
 - Unit tests are unaffected either way: every Use Case test runs against a
   purpose-built fake constructed directly in the test file, regardless of
   what the running app defaults to.
@@ -379,14 +378,14 @@ what shipped differently from the original plan, and this file's own "Live
 backend" section above for what's deliberately still out of scope (no MCP
 domain concept).
 
-Live-backend wiring is now underway: `RemoteAuthSessionRepository` (Auth),
+Live-backend wiring is complete: `RemoteAuthSessionRepository` (Auth),
 `RemoteDeviceFleetRepository` (Devices), `RemotePermissionRequestRepository`
-(Permissions), `RemoteOrchestratorConversationRepository` (Chat), and
+(Permissions), `RemoteOrchestratorConversationRepository` (Chat),
 `RemoteAgentRosterRepository`/`RemoteAgentConversationRepository` (Agent
-Chat) all talk to the real backend outside Xcode Previews — see `TODO.md`'s
-"Live Backend Wiring" section for each one's own revision notes. Settings
-still defaults to `Fake*Repository` unconditionally; that's the one
-remaining, not-yet-started piece of work. One deliberate deviation from the
+Chat), and `RemoteAccountRepository` (Settings) all talk to the real
+backend outside Xcode Previews — see `TODO.md`'s "Live Backend Wiring"
+section for each one's own revision notes. `Fake*Repository` is now
+Xcode-Previews-only everywhere in the app. One deliberate deviation from the
 web client: an `.active`, non-admin account with no subscription or credits
 (`hasAccess: false` on `/api/auth/me`) is NOT force-routed to a billing
 paywall the way the web client does — this app has no checkout flow to
