@@ -22,6 +22,14 @@ final class ChatViewModel: ObservableObject {
     /// User-entered composer text. Kept on the VM so the DEBUG route override
     /// can seed a realistic populated state for screenshots.
     @Published var composerText = ""
+    /// Bumped every time `send()` clears the composer — `ChatView` applies
+    /// it as the composer's `.id()`. `TextField(axis: .vertical)` has a
+    /// known quirk where clearing the bound string alone doesn't always
+    /// reset the underlying multi-line text view (observed: the old text
+    /// stayed visible after sending). Forcing a fresh view identity on
+    /// every send is a blunt but reliable fix, synchronous with the clear
+    /// itself rather than waiting on the transcript to update.
+    @Published private(set) var composerResetToken = 0
 
     private let sendUseCase: SendChatMessageUseCase
     private let resetUseCase: ResetConversationUseCase
@@ -51,6 +59,7 @@ final class ChatViewModel: ObservableObject {
         do {
             let text = composerText
             composerText = ""
+            composerResetToken += 1
             try await sendUseCase.execute(text: text, to: .orchestrator)
         } catch let error as SendChatMessageError {
             sendErrorMessage = error.errorDescription

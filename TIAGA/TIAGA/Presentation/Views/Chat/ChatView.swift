@@ -30,39 +30,56 @@ struct ChatView: View {
         VStack(spacing: 0) {
             header
 
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: TIAGASpacing.sm) {
-                    if viewModel.transcript.isEmpty {
-                        Text("Start a conversation with TIAGA.")
-                            .font(TIAGATypography.subheadline)
-                            .foregroundStyle(TIAGAColor.textTertiary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, TIAGASpacing.xl)
-                    } else {
-                        ForEach(viewModel.transcript) { message in
-                            TranscriptRow(message: message)
-                        }
-                    }
-
-                    if viewModel.isStreaming {
-                        HStack(spacing: TIAGASpacing.xs) {
-                            ProgressView()
-                                .tint(TIAGAColor.brandAccent)
-                            Text("TIAGA is replying…")
-                                .font(TIAGATypography.caption)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: TIAGASpacing.sm) {
+                        if viewModel.transcript.isEmpty {
+                            Text("Start a conversation with TIAGA.")
+                                .font(TIAGATypography.subheadline)
                                 .foregroundStyle(TIAGAColor.textTertiary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, TIAGASpacing.xl)
+                        } else {
+                            ForEach(viewModel.transcript) { message in
+                                TranscriptRow(message: message)
+                            }
                         }
-                        .padding(.top, TIAGASpacing.sm)
+
+                        if viewModel.isStreaming {
+                            HStack(spacing: TIAGASpacing.xs) {
+                                ProgressView()
+                                    .tint(TIAGAColor.brandAccent)
+                                Text("TIAGA is replying…")
+                                    .font(TIAGATypography.caption)
+                                    .foregroundStyle(TIAGAColor.textTertiary)
+                            }
+                            .padding(.top, TIAGASpacing.sm)
+                        }
+
+                        // Scroll anchor — real history can be long enough
+                        // to open scrolled to the top otherwise (invisible
+                        // with the fake's short fixture transcript, but not
+                        // with a real, months-long conversation).
+                        Color.clear.frame(height: 1).id(Self.bottomAnchorID)
                     }
+                    .padding(TIAGASpacing.lg)
                 }
-                .padding(TIAGASpacing.lg)
+                .scrollDismissesKeyboard(.interactively)
+                // Otherwise the same swipe that opens the side menu also nudges
+                // this scroll position — a human swipe is never perfectly
+                // horizontal, and .simultaneousGesture deliberately lets both
+                // recognize the same touch at once. See FleetConsoleRootView.
+                .scrollDisabled(isSideMenuOpenGestureActive)
+                .task {
+                    proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
+                }
+                .onChange(of: viewModel.transcript) { _, _ in
+                    proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
+                }
+                .onChange(of: viewModel.isStreaming) { _, _ in
+                    proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
+                }
             }
-            .scrollDismissesKeyboard(.interactively)
-            // Otherwise the same swipe that opens the side menu also nudges
-            // this scroll position — a human swipe is never perfectly
-            // horizontal, and .simultaneousGesture deliberately lets both
-            // recognize the same touch at once. See FleetConsoleRootView.
-            .scrollDisabled(isSideMenuOpenGestureActive)
 
             if let message = viewModel.sendErrorMessage {
                 Text(message)
@@ -89,6 +106,7 @@ struct ChatView: View {
                     Task { await viewModel.send() }
                 }
             )
+            .id(viewModel.composerResetToken)
             .padding(TIAGASpacing.lg)
         }
         .background(TIAGAColor.background)
@@ -162,6 +180,8 @@ struct ChatView: View {
     private var contextColor: Color {
         TIAGAColor.forContextUsage(percentage: viewModel.contextUsage.fraction)
     }
+
+    private static let bottomAnchorID = "bottom"
 }
 
 #Preview {

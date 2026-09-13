@@ -730,6 +730,18 @@ everywhere-else selection rule every `Remote*Repository` follows.
         percentage, and a real pending permission request from a real agent
         all loaded correctly on launch. Did not send a test message myself
         (real LLM cost) — that's for the user to verify.
+      - **Two real bugs found from real manual testing, both invisible with
+        the fake's short fixture transcript**: (1) `ChatView` had no
+        `ScrollViewReader` at all — opened scrolled to the top of history
+        instead of the bottom, never noticed because the fake's ~6-message
+        fixture always fit on one screen without scrolling. Fixed with a
+        bottom anchor + `scrollTo` on initial load and on every transcript/
+        streaming-state change. (2) The composer didn't visually clear
+        after sending — a known `TextField(axis: .vertical)` quirk where
+        clearing the bound string doesn't always reset the underlying
+        multi-line text view. Fixed by giving the composer an `.id()` tied
+        to a counter bumped synchronously with the clear, forcing a fresh
+        view instance on every send.
       - **Not in this pass**: Agent Chat (`RemoteAgentRosterRepository`/
         `RemoteAgentConversationRepository`) — its own direct user↔agent
         protocol (`agent_chat`/`agent_chat_state` events) needs its own
