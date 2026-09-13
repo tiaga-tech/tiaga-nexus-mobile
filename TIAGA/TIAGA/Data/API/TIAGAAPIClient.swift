@@ -68,6 +68,11 @@ final class TIAGAAPIClient {
         _ = try await sendRaw(path: path, method: "POST", body: nil)
     }
 
+    /// DELETE with no body and no meaningful response body (e.g. `/api/ui/{id}`).
+    func deleteExpectingNoContent(_ path: String) async throws {
+        _ = try await sendRaw(path: path, method: "DELETE", body: nil)
+    }
+
     private func decodeOrThrow<Response: Decodable>(_ data: Data) throws -> Response {
         do {
             return try decoder.decode(Response.self, from: data)

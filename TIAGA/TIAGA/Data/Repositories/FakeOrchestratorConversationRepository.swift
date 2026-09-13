@@ -243,6 +243,10 @@ final class FakeOrchestratorConversationRepository: OrchestratorConversationRepo
         return lock.withLock { dynamicUICards }
     }
 
+    func removeDynamicUICard(id: String) async throws {
+        lock.withLock { dynamicUICards.removeAll { $0.id == id } }
+    }
+
     // MARK: - Fixture scripting
 
     private static func reply(for messageCount: Int) -> String {

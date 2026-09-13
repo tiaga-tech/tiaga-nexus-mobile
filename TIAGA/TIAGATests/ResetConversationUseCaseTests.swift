@@ -30,6 +30,8 @@ private final class StubResetConversationRepository: OrchestratorConversationRep
     }
 
     func fetchDynamicUICardHistory() async throws -> [DynamicUICard] { [] }
+
+    func removeDynamicUICard(id: String) async throws {}
 }
 
 struct ResetConversationUseCaseTests {

@@ -26,13 +26,21 @@ final class ChatViewModel: ObservableObject {
     private let sendUseCase: SendChatMessageUseCase
     private let resetUseCase: ResetConversationUseCase
     private let loadDynamicUICardHistoryUseCase: LoadDynamicUICardHistoryUseCase
+    private let removeDynamicUICardUseCase: RemoveDynamicUICardUseCase
     private let repository: OrchestratorConversationRepository
 
-    init(repository: OrchestratorConversationRepository = FakeOrchestratorConversationRepository()) {
-        self.repository = repository
-        self.sendUseCase = SendChatMessageUseCase(orchestratorRepository: repository)
-        self.resetUseCase = ResetConversationUseCase(repository: repository)
-        self.loadDynamicUICardHistoryUseCase = LoadDynamicUICardHistoryUseCase(repository: repository)
+    init(repository: OrchestratorConversationRepository? = nil) {
+        // Fake*Repository only inside Xcode Previews — everywhere else
+        // (Simulator or a real device) talks to the real backend. See
+        // AGENTS.md's "Live backend" policy.
+        let resolvedRepository = repository ?? (
+            ProcessInfo.isRunningInXcodePreview ? FakeOrchestratorConversationRepository() : RemoteOrchestratorConversationRepository()
+        )
+        self.repository = resolvedRepository
+        self.sendUseCase = SendChatMessageUseCase(orchestratorRepository: resolvedRepository)
+        self.resetUseCase = ResetConversationUseCase(repository: resolvedRepository)
+        self.loadDynamicUICardHistoryUseCase = LoadDynamicUICardHistoryUseCase(repository: resolvedRepository)
+        self.removeDynamicUICardUseCase = RemoveDynamicUICardUseCase(repository: resolvedRepository)
         startObserving()
     }
 
@@ -73,14 +81,19 @@ final class ChatViewModel: ObservableObject {
         }
     }
 
-    /// Removes one dynamic UI card from the operator's current history. A
-    /// close action is local UI state — the fake repository deliberately has
-    /// no persistence for individual card removal, mirroring the browser's
-    /// dismiss-without-backend-round-trip behaviour.
+    /// Removes one dynamic UI card from the operator's current history.
+    /// Removed from local state immediately (an operator closing a card
+    /// wants it gone now, not after a round-trip), with the backend call
+    /// fired alongside — the real backend persists cards server-side
+    /// (`GET /api/cards` restores them after a reload), so this has to
+    /// actually reach it, not just update local UI state. A failure here
+    /// is low-stakes (the card just might reappear next reload) and isn't
+    /// surfaced as an error for that reason.
     func dismissDynamicCard(id: String) {
         withAnimation(.easeOut(duration: 0.2)) {
             dynamicCardHistory.removeAll { $0.id == id }
         }
+        Task { try? await removeDynamicUICardUseCase.execute(id: id) }
     }
 
     #if DEBUG

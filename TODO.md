@@ -682,12 +682,62 @@ everywhere-else selection rule every `Remote*Repository` follows.
       route to (Billing is read-only, web-only by design), so that account
       just reaches the Fleet Console with Settings already showing "no
       active plan."
-- [ ] `RemoteAgentRosterRepository` / `RemoteAgentConversationRepository` /
-      `RemoteOrchestratorConversationRepository` (Chat + Agent Chat) — the
-      highest-stakes area to wire live: a real message sent from this app
-      reaches a real LLM (real cost) and, if it dispatches a tool call, a
-      real agent doing real things on a real machine. Needs `TIAGAEventStream`
-      for streaming tokens/tool events, not just request/response.
+- [x] `RemoteOrchestratorConversationRepository` (Chat) — the highest-stakes
+      area wired live so far: a real message sent from this app reaches a
+      real LLM (real, billed cost) and, if it dispatches a tool call, a real
+      agent doing real things on a real machine. Checked `ChatController.cs`/
+      `CardsController.cs`/`useConversation.ts`/`api.ts` directly.
+      **Revisions:**
+      - `POST /api/chat` is fire-and-forget (accepted, then everything flows
+        over `/api/events`) — unlike the fake, which awaits its whole canned
+        reply cycle inside `send(_:to:)`. The operator's own message is
+        appended optimistically (the backend never echoes it back over
+        SSE, confirmed against `useConversation.ts`'s `send`) and rolled
+        back if the POST is rejected.
+      - Extended `RemoteEventBus` with `events(ofTypes:)` (one merged stream
+        for several `type`s registered under the same continuation) since
+        Chat needs eight event types (`voice`/`tool`/`error`/`turn_start`/
+        `turn_end`/`compaction`/`usage`/`cancelled`) funneled together,
+        matching the web client's one `es.onmessage` handler rather than
+        opening eight separate subscriptions.
+      - **Simplification**: the real backend has a separate `compacting`
+        state (`IsCompacting`) alongside `thinking` (`IsThinking`) — both
+        block new sends, but this app's `isStreaming` only ever modeled one
+        busy flag. Compaction events also drive `isStreaming` rather than
+        adding a new "compacting" indicator this pass; sends/resets are
+        still correctly blocked, they just read as "still replying" instead
+        of a distinct label.
+      - **Found and fixed a real fidelity gap while in this area**:
+        `ChatViewModel.dismissDynamicCard` claimed (in its own doc comment)
+        to mirror "the browser's dismiss-without-backend-round-trip
+        behaviour" — checked `CardsController.cs`/`api.ts`'s
+        `removeDynamicUi` directly and the web **does** round-trip
+        (`DELETE /api/ui/{id}`), so a dismissed card would otherwise
+        reappear on next reload. Added `OrchestratorConversationRepository
+        .removeDynamicUICard(id:)` + `RemoveDynamicUICardUseCase`; local
+        removal stays immediate/optimistic, the backend call fires
+        alongside.
+      - A `DynamicCard` carries no explicit kind field — kind is inferred
+        from which optional fields are populated, in the same priority
+        order the web client checks them (`FloatingCardsLayer.tsx`):
+        diagram, then code, then table (columns+rows), else text.
+      - Added `TIAGAAPIClient.deleteExpectingNoContent` (DELETE was the
+        only missing HTTP verb) and `SendChatMessageError.rejectedByBackend
+        (reason:)` to carry the backend's own specific reason (busy /
+        pending permission / billing gate) verbatim, matching how the web
+        client surfaces all of these identically via one `BusyError` class.
+      - **Verified against the real account**: message history, context
+        percentage, and a real pending permission request from a real agent
+        all loaded correctly on launch. Did not send a test message myself
+        (real LLM cost) — that's for the user to verify.
+      - **Not in this pass**: Agent Chat (`RemoteAgentRosterRepository`/
+        `RemoteAgentConversationRepository`) — its own direct user↔agent
+        protocol (`agent_chat`/`agent_chat_state` events) needs its own
+        verification pass, kept as a separate PR.
+- [ ] `RemoteAgentRosterRepository` / `RemoteAgentConversationRepository`
+      (Agent Chat) — direct user↔agent chat, routed over the same shared
+      `/api/events` stream via `agent_chat`/`agent_chat_state` events
+      rather than the orchestrator's `voice`/`tool`/etc. types.
 - [x] `RemoteDeviceFleetRepository` (Devices) — device list
       (`GET /api/devices`) + the permissions-required toggle
       (`PUT /api/devices/{id}`). **Revision:** checked `DevicesController.cs`/

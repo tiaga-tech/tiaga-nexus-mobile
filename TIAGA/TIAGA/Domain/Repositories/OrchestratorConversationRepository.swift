@@ -31,4 +31,10 @@ protocol OrchestratorConversationRepository {
     /// Fetches the orchestrator's dynamic UI card history.
     /// Throws `DynamicUICardHistoryError` on failure.
     func fetchDynamicUICardHistory() async throws -> [DynamicUICard]
+
+    /// Removes one dynamic UI card, both from history and (if still shown)
+    /// live — the real backend persists cards server-side (`GET /api/cards`
+    /// restores them after a reload), so a dismissal has to round-trip, not
+    /// just update local UI state.
+    func removeDynamicUICard(id: String) async throws
 }

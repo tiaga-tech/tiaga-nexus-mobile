@@ -32,6 +32,8 @@ private final class StubConversationRepository: OrchestratorConversationReposito
     func resetConversation() async throws {}
 
     func fetchDynamicUICardHistory() async throws -> [DynamicUICard] { [] }
+
+    func removeDynamicUICard(id: String) async throws {}
 }
 
 /// Thin purpose-built fake `AgentRosterRepository` for the agent-target
